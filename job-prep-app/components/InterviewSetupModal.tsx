@@ -10,12 +10,13 @@ interface Props {
 }
 
 export default function InterviewSetupModal({ applicationLabel, onStart, onClose }: Props) {
+  const [mode, setMode] = useState<"text" | "voice">("text");
   const [difficulty, setDifficulty] = useState<"normal" | "pressure">("normal");
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [interviewType, setInterviewType] = useState<"job_round" | "executive_round">("job_round");
 
   function handleStart() {
-    onStart({ difficulty, totalQuestions, interviewType, questionNumber: 0, isLastQuestion: false });
+    onStart({ difficulty, totalQuestions, interviewType, questionNumber: 0, isLastQuestion: false, mode });
   }
 
   return (
@@ -30,6 +31,26 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
         </div>
 
         <div className="px-6 py-5 space-y-5">
+          {/* 면접 방식 */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">면접 방식</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "text", emoji: "⌨️", label: "텍스트", desc: "타이핑으로 답변" },
+                { value: "voice", emoji: "🎙️", label: "음성", desc: "말로 답변 (Chrome 권장)" },
+              ] as const).map(({ value, emoji, label, desc }) => (
+                <button key={value} type="button"
+                  onClick={() => setMode(value)}
+                  className={`p-3 rounded-xl border text-left transition-colors
+                    ${mode === value ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
+                  <p className="text-xl mb-1">{emoji}</p>
+                  <p className={`text-sm font-semibold ${mode === value ? "text-blue-700" : "text-gray-700"}`}>{label}</p>
+                  <p className="text-xs text-gray-400">{desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* 면접 유형 */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700">면접 유형</label>

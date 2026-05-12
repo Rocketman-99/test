@@ -8,6 +8,7 @@ import SpecEditModal from "./SpecEditModal";
 import AddApplicationModal from "./AddApplicationModal";
 import InterviewSetupModal from "./InterviewSetupModal";
 import InterviewSession from "./InterviewSession";
+import VoiceInterviewSession from "./VoiceInterviewSession";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
@@ -427,13 +428,23 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         />
       )}
       {interviewSession && (
-        <InterviewSession
-          spec={spec}
-          application={interviewSession.app}
-          settings={interviewSession.settings}
-          apiKey={apiKey}
-          onClose={() => setInterviewSession(null)}
-        />
+        interviewSession.settings.mode === "voice" ? (
+          <VoiceInterviewSession
+            spec={spec}
+            application={interviewSession.app}
+            settings={interviewSession.settings}
+            apiKey={apiKey}
+            onClose={() => setInterviewSession(null)}
+          />
+        ) : (
+          <InterviewSession
+            spec={spec}
+            application={interviewSession.app}
+            settings={interviewSession.settings}
+            apiKey={apiKey}
+            onClose={() => setInterviewSession(null)}
+          />
+        )
       )}
 
       {/* 모달들 */}

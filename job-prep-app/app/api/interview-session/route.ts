@@ -8,6 +8,7 @@ export interface InterviewSettings {
   interviewType: "job_round" | "executive_round";
   questionNumber: number;
   isLastQuestion: boolean;
+  mode?: "text" | "voice";
 }
 
 const DIFFICULTY_GUIDE: Record<string, string> = {
