@@ -61,11 +61,7 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
   function validate(): boolean {
     const errs: Partial<Record<keyof BasicInfo, string>> = {};
     if (!form.name.trim()) errs.name = "이름을 입력해주세요.";
-    if (!form.email.trim()) errs.email = "이메일을 입력해주세요.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "올바른 이메일 형식이 아닙니다.";
-    if (!form.phone.trim()) errs.phone = "연락처를 입력해주세요.";
-    if (!form.school.trim()) errs.school = "학교를 입력해주세요.";
-    if (!form.major.trim()) errs.major = "전공을 입력해주세요.";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "올바른 이메일 형식이 아닙니다.";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -94,22 +90,22 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
               className={inputCls(!!errors.name)}
             />
           </Field>
-          <Field label="이메일" required error={errors.email}>
+          <Field label="이메일" error={errors.email}>
             <input
               type="email"
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
-              placeholder="example@email.com"
+              placeholder="example@email.com (선택)"
               className={inputCls(!!errors.email)}
             />
           </Field>
-          <Field label="연락처" required error={errors.phone}>
+          <Field label="연락처">
             <input
               type="tel"
               value={form.phone}
               onChange={(e) => set("phone", e.target.value)}
-              placeholder="010-0000-0000"
-              className={inputCls(!!errors.phone)}
+              placeholder="010-0000-0000 (선택)"
+              className={inputCls(false)}
             />
           </Field>
         </div>
@@ -119,22 +115,22 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b pb-1">학력</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="학교명" required error={errors.school}>
+          <Field label="학교명">
             <input
               type="text"
               value={form.school}
               onChange={(e) => set("school", e.target.value)}
-              placeholder="OO대학교"
-              className={inputCls(!!errors.school)}
+              placeholder="OO대학교 (선택)"
+              className={inputCls(false)}
             />
           </Field>
-          <Field label="전공" required error={errors.major}>
+          <Field label="전공">
             <input
               type="text"
               value={form.major}
               onChange={(e) => set("major", e.target.value)}
-              placeholder="컴퓨터공학과"
-              className={inputCls(!!errors.major)}
+              placeholder="컴퓨터공학과 (선택)"
+              className={inputCls(false)}
             />
           </Field>
           <Field label="학점 (선택)">

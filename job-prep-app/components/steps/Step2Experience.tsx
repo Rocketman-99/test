@@ -23,10 +23,6 @@ export default function Step2Experience({ initialData, onNext, onBack, submitLab
   const [error, setError] = useState("");
 
   function handleNext() {
-    if (text.trim().length < 20) {
-      setError("경험을 좀 더 자세히 작성해주세요. (최소 20자)");
-      return;
-    }
     setError("");
     onNext({ text });
   }
