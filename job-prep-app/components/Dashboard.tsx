@@ -61,6 +61,8 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [verifyResult, setVerifyResult] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [activeFeatureKey, setActiveFeatureKey] = useState<DocFeature | "organize" | null>(null);
+  const [panelHistoryNum, setPanelHistoryNum] = useState<number | null>(null);
+  const [panelCreatedAt, setPanelCreatedAt] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   function saveApiKey(key: string) {
@@ -113,12 +115,35 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     try { return JSON.parse(localStorage.getItem(getHistoryKey(featureKey, appId)) ?? "[]"); } catch { return []; }
   }
 
-  function saveToHistory(featureKey: string, appId: string | null, content: string) {
-    if (typeof window === "undefined" || !content || content.startsWith("[오류]")) return;
+  function saveToHistory(featureKey: string, appId: string | null, content: string): { seqNum: number; createdAt: string } | null {
+    if (typeof window === "undefined" || !content || content.startsWith("[오류]")) return null;
     const existing = loadHistory(featureKey, appId);
-    const item: HistoryItem = { id: crypto.randomUUID(), content, createdAt: new Date().toISOString() };
+    const createdAt = new Date().toISOString();
+    const item: HistoryItem = { id: crypto.randomUUID(), content, createdAt };
     const updated = [item, ...existing].slice(0, 5);
     localStorage.setItem(getHistoryKey(featureKey, appId), JSON.stringify(updated));
+    return { seqNum: existing.length + 1, createdAt };
+  }
+
+  const FEATURE_LABEL: Record<string, string> = {
+    "organize": "경험정리",
+    "resume": "이력서",
+    "cover-letter": "자소서",
+    "interview": "면접질문",
+  };
+
+  function computeFilename(): string {
+    const date = (panelCreatedAt ?? new Date().toISOString()).slice(0, 10);
+    const userName = (spec.basicInfo.name || "사용자").replace(/\s+/g, "");
+    const safe = (s: string) => s.replace(/[\s/\\:*?"<>|]/g, "_");
+
+    if (activeFeatureKey === "organize") {
+      return `${userName}_경험정리_${date}.md`;
+    }
+    const appLabel = safe(panelApp?.label ?? "공고");
+    const featureLabel = FEATURE_LABEL[activeFeatureKey ?? ""] ?? "문서";
+    const numPart = panelHistoryNum != null ? `_${panelHistoryNum}번째` : "";
+    return `${appLabel}_${featureLabel}${numPart}_${date}.md`;
   }
 
   const openFeature = useCallback(
@@ -131,7 +156,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   );
 
   const openPanel = useCallback(
-    (featureKey: DocFeature | "organize", title: string, endpoint: string, app: Application | null, initialContent = "") => {
+    (featureKey: DocFeature | "organize", title: string, endpoint: string, app: Application | null, initialContent = "", historyNum?: number, createdAt?: string) => {
       setHistoryView(null);
       setPanelTitle(title);
       setPanelEndpoint(endpoint);
@@ -140,6 +165,8 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       setResult(initialContent);
       setVerifyResult("");
       setCopied(false);
+      setPanelHistoryNum(historyNum ?? null);
+      setPanelCreatedAt(createdAt ?? null);
     },
     []
   );
@@ -185,7 +212,11 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           accumulated += decoder.decode(value, { stream: true });
           setResult(accumulated);
         }
-        saveToHistory(featureKey ?? activeFeatureKey ?? "", app?.id ?? null, accumulated);
+        const meta = saveToHistory(featureKey ?? activeFeatureKey ?? "", app?.id ?? null, accumulated);
+        if (meta) {
+          setPanelHistoryNum(meta.seqNum);
+          setPanelCreatedAt(meta.createdAt);
+        }
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           setResult("[오류] 네트워크 오류가 발생했습니다.");
@@ -562,7 +593,12 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => openPanel(historyView.featureKey, historyView.title, historyView.endpoint, historyView.app, item.content)}
+                  onClick={() => openPanel(
+                    historyView.featureKey, historyView.title, historyView.endpoint, historyView.app,
+                    item.content,
+                    historyView.items.length - idx,
+                    item.createdAt
+                  )}
                   className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -594,6 +630,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           title={panelTitle}
           content={result}
           loading={loading}
+          filename={computeFilename()}
           onClose={() => {
             if (!loading && !revising && !verifying) {
               setPanelEndpoint("");

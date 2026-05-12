@@ -7,6 +7,7 @@ interface Props {
   title: string;
   content: string;
   loading: boolean;
+  filename: string;
   onClose: () => void;
   onStop: () => void;
   onCopy: () => void;
@@ -20,20 +21,8 @@ interface Props {
   canVerify: boolean;
 }
 
-function toFilename(title: string) {
-  const base = title.replace(/\s*—.*$/, "").trim();
-  const map: Record<string, string> = {
-    "경험 자동 정리": "경험정리",
-    "이력서": "이력서",
-    "자소서": "자기소개서",
-    "면접 질문": "면접질문",
-  };
-  const key = Object.keys(map).find((k) => base.includes(k)) ?? base;
-  return `취준도우미_${map[key] ?? key}_${new Date().toISOString().slice(0, 10)}.md`;
-}
-
 export default function AiResultPanel({
-  title, content, loading,
+  title, content, loading, filename,
   onClose, onStop, onCopy, copied,
   onRegenerate, onRevise, revising,
   onVerify, verifying, verifyResult, canVerify,
@@ -64,7 +53,7 @@ export default function AiResultPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = toFilename(title);
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   }
