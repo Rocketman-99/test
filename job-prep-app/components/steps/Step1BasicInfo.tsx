@@ -181,25 +181,31 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
           <p className="text-sm text-gray-500 py-2">어학 성적이 없으면 건너뛰어도 됩니다.</p>
         )}
         {form.languageScores.map((ls, idx) => (
-          <div key={idx} className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={ls.type}
-              onChange={(e) => updateLanguageScore(idx, "type", e.target.value)}
-              placeholder="TOEIC"
-              className={`${inputCls(false)} flex-1`}
-            />
-            <input
-              type="text"
-              value={ls.score}
-              onChange={(e) => updateLanguageScore(idx, "score", e.target.value)}
-              placeholder="950"
-              className={`${inputCls(false)} w-28`}
-            />
+          <div key={idx} className="flex gap-2 items-start">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs text-gray-500">시험 종류</label>
+              <input
+                type="text"
+                value={ls.type}
+                onChange={(e) => updateLanguageScore(idx, "type", e.target.value)}
+                placeholder="예: TOEIC, IELTS, OPIc"
+                className={`${inputCls(false)} w-full`}
+              />
+            </div>
+            <div className="w-32 space-y-1">
+              <label className="text-xs text-gray-500">점수 / 등급</label>
+              <input
+                type="text"
+                value={ls.score}
+                onChange={(e) => updateLanguageScore(idx, "score", e.target.value)}
+                placeholder="예: 950, IH, B2"
+                className={`${inputCls(false)} w-full`}
+              />
+            </div>
             <button
               type="button"
               onClick={() => removeLanguageScore(idx)}
-              className="text-gray-400 hover:text-red-500 text-lg leading-none px-1"
+              className="text-gray-400 hover:text-red-500 text-lg leading-none px-1 mt-6"
             >
               ×
             </button>
