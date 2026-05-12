@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserProfile } from "@/types/user";
-import { saveProfile, loadProfile } from "@/lib/store";
+import { UserSpec, Application, UserProfile } from "@/types/user";
+import { saveProfile, loadProfile, saveSpec, saveApplications } from "@/lib/store";
 import StepIndicator from "./StepIndicator";
 import Step1BasicInfo from "./steps/Step1BasicInfo";
 import Step2Experience from "./steps/Step2Experience";
@@ -10,7 +10,7 @@ import Step3Goals from "./steps/Step3Goals";
 import Step4JobPosting from "./steps/Step4JobPosting";
 
 interface Props {
-  onComplete: (profile: UserProfile) => void;
+  onComplete: (spec: UserSpec, applications: Application[]) => void;
 }
 
 export default function OnboardingFlow({ onComplete }: Props) {
@@ -45,7 +45,25 @@ export default function OnboardingFlow({ onComplete }: Props) {
   function handleStep4(jobPosting: UserProfile["jobPosting"]) {
     const completed = { ...profile, jobPosting } as UserProfile;
     saveProfile(completed);
-    onComplete(completed);
+
+    const spec: UserSpec = {
+      basicInfo: completed.basicInfo,
+      experienceRaw: completed.experienceRaw,
+      goals: completed.goals,
+    };
+    saveSpec(spec);
+
+    const applications: Application[] = [];
+    if (jobPosting.url || jobPosting.text) {
+      applications.push({
+        id: crypto.randomUUID(),
+        label: "첫 번째 공고",
+        jobPosting,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    saveApplications(applications);
+    onComplete(spec, applications);
   }
 
   return (

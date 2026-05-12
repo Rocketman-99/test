@@ -1,31 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserProfile } from "@/types/user";
-import { loadProfile } from "@/lib/store";
+import { UserSpec, Application } from "@/types/user";
+import { loadSpec, isSpecComplete, loadApplications } from "@/lib/store";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import Dashboard from "@/components/Dashboard";
 
 export default function Home() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [spec, setSpec] = useState<UserSpec | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = loadProfile();
-    if (
-      saved.basicInfo &&
-      saved.experienceRaw &&
-      saved.goals &&
-      saved.jobPosting !== undefined
-    ) {
-      setProfile(saved as UserProfile);
+    const saved = loadSpec();
+    if (isSpecComplete(saved)) {
+      setSpec(saved);
+      setApplications(loadApplications());
     }
     setLoading(false);
   }, []);
 
   function handleReset() {
+    localStorage.removeItem("job-prep-spec");
+    localStorage.removeItem("job-prep-applications");
     localStorage.removeItem("job-prep-profile");
-    setProfile(null);
+    setSpec(null);
+    setApplications([]);
   }
 
   if (loading) {
@@ -36,9 +36,24 @@ export default function Home() {
     );
   }
 
-  if (profile) {
-    return <Dashboard profile={profile} onReset={handleReset} />;
+  if (spec) {
+    return (
+      <Dashboard
+        spec={spec}
+        applications={applications}
+        onSpecChange={setSpec}
+        onApplicationsChange={setApplications}
+        onReset={handleReset}
+      />
+    );
   }
 
-  return <OnboardingFlow onComplete={setProfile} />;
+  return (
+    <OnboardingFlow
+      onComplete={(newSpec, firstApps) => {
+        setSpec(newSpec);
+        setApplications(firstApps);
+      }}
+    />
+  );
 }

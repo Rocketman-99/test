@@ -1,29 +1,30 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { UserProfile } from "@/types/user";
+import { UserSpec, Application } from "@/types/user";
+import { saveApplications } from "@/lib/store";
 import AiResultPanel from "./AiResultPanel";
+import SpecEditModal from "./SpecEditModal";
+import AddApplicationModal from "./AddApplicationModal";
 
 interface Props {
-  profile: UserProfile;
+  spec: UserSpec;
+  applications: Application[];
+  onSpecChange: (spec: UserSpec) => void;
+  onApplicationsChange: (apps: Application[]) => void;
   onReset: () => void;
 }
 
-type FeatureKey = "organize" | "resume" | "cover-letter" | "interview";
+type DocFeature = "resume" | "cover-letter" | "interview";
 
-const FEATURE_CONFIG: Record<
-  FeatureKey,
-  { icon: string; label: string; endpoint: string; description: string }
-> = {
-  organize: { icon: "🗂️", label: "경험 자동 정리", endpoint: "/api/organize-experience", description: "자유 입력 → 이력서 항목" },
-  resume: { icon: "📝", label: "이력서 자동 생성", endpoint: "/api/generate-resume", description: "공고 맞춤 이력서" },
-  "cover-letter": { icon: "✍️", label: "자소서 작성", endpoint: "/api/generate-cover-letter", description: "공고 최적화 자소서" },
-  interview: { icon: "🎤", label: "면접 질문 생성", endpoint: "/api/interview-questions", description: "예상 질문 + 답변 가이드" },
+const DOC_FEATURES: Record<DocFeature, { icon: string; label: string; endpoint: string }> = {
+  resume: { icon: "📝", label: "이력서", endpoint: "/api/generate-resume" },
+  "cover-letter": { icon: "✍️", label: "자소서", endpoint: "/api/generate-cover-letter" },
+  interview: { icon: "🎤", label: "면접 질문", endpoint: "/api/interview-questions" },
 };
 
-export default function Dashboard({ profile, onReset }: Props) {
-  const { basicInfo, experienceRaw, goals, jobPosting } = profile;
-  const hasPosting = jobPosting.url || jobPosting.text;
+export default function Dashboard({ spec, applications, onSpecChange, onApplicationsChange, onReset }: Props) {
+  const { basicInfo, goals } = spec;
 
   const [apiKey, setApiKey] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("anthropic-api-key") ?? "" : "")
@@ -32,14 +33,19 @@ export default function Dashboard({ profile, onReset }: Props) {
     () => (typeof window !== "undefined" ? localStorage.getItem("gemini-api-key") ?? "" : "")
   );
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [showSpecEdit, setShowSpecEdit] = useState(false);
+  const [addAppFor, setAddAppFor] = useState<Application | "new" | null>(null);
 
-  const [activeFeature, setActiveFeature] = useState<FeatureKey | null>(null);
+  // AI panel state
+  const [panelTitle, setPanelTitle] = useState("");
+  const [panelEndpoint, setPanelEndpoint] = useState("");
+  const [panelApp, setPanelApp] = useState<Application | null>(null);
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-
   const [verifyResult, setVerifyResult] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [activeFeatureKey, setActiveFeatureKey] = useState<DocFeature | "organize" | null>(null);
 
   function saveApiKey(key: string) {
     setApiKey(key);
@@ -51,19 +57,50 @@ export default function Dashboard({ profile, onReset }: Props) {
     localStorage.setItem("gemini-api-key", key);
   }
 
-  const runFeature = useCallback(
-    async (feature: FeatureKey) => {
-      setActiveFeature(feature);
+  function handleDeleteApp(id: string) {
+    const updated = applications.filter((a) => a.id !== id);
+    saveApplications(updated);
+    onApplicationsChange(updated);
+  }
+
+  function handleSaveApp(app: Application) {
+    const exists = applications.find((a) => a.id === app.id);
+    const updated = exists
+      ? applications.map((a) => (a.id === app.id ? app : a))
+      : [...applications, app];
+    saveApplications(updated);
+    onApplicationsChange(updated);
+    setAddAppFor(null);
+  }
+
+  const openPanel = useCallback(
+    (featureKey: DocFeature | "organize", title: string, endpoint: string, app: Application | null) => {
+      setPanelTitle(title);
+      setPanelEndpoint(endpoint);
+      setPanelApp(app);
+      setActiveFeatureKey(featureKey);
       setResult("");
       setVerifyResult("");
       setCopied(false);
+    },
+    []
+  );
+
+  const runGenerate = useCallback(
+    async (endpoint: string, app: Application | null) => {
+      setResult("");
       setLoading(true);
 
+      const profileForAI = {
+        ...spec,
+        jobPosting: app?.jobPosting ?? { url: "", text: "" },
+      };
+
       try {
-        const res = await fetch(FEATURE_CONFIG[feature].endpoint, {
+        const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profile, apiKey: apiKey || undefined }),
+          body: JSON.stringify({ profile: profileForAI, apiKey: apiKey || undefined }),
         });
 
         if (!res.ok || !res.body) {
@@ -75,7 +112,6 @@ export default function Dashboard({ profile, onReset }: Props) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let accumulated = "";
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -88,23 +124,27 @@ export default function Dashboard({ profile, onReset }: Props) {
         setLoading(false);
       }
     },
-    [profile, apiKey]
+    [spec, apiKey]
   );
 
   const runVerify = useCallback(
     async (claudeOutput: string) => {
-      if (!activeFeature) return;
       setVerifyResult("");
       setVerifying(true);
+
+      const profileForAI = {
+        ...spec,
+        jobPosting: panelApp?.jobPosting ?? { url: "", text: "" },
+      };
 
       try {
         const res = await fetch("/api/verify-with-gemini", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            profile,
+            profile: profileForAI,
             claudeOutput,
-            feature: activeFeature,
+            feature: activeFeatureKey,
             geminiApiKey: geminiKey || undefined,
           }),
         });
@@ -118,7 +158,6 @@ export default function Dashboard({ profile, onReset }: Props) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let accumulated = "";
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -131,227 +170,248 @@ export default function Dashboard({ profile, onReset }: Props) {
         setVerifying(false);
       }
     },
-    [profile, geminiKey, activeFeature]
+    [spec, panelApp, activeFeatureKey, geminiKey]
   );
 
-  function handleCopy() {
-    navigator.clipboard.writeText(result).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
+  const isPanelOpen = panelEndpoint !== "";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl space-y-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4 py-8">
+      <div className="w-full max-w-2xl mx-auto space-y-4">
+
         {/* 헤더 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                안녕하세요, {basicInfo.name}님!
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                {goals.targetRole} · {goals.targetIndustry} 준비 중
-              </p>
+              <h1 className="text-2xl font-bold text-gray-900">안녕하세요, {basicInfo.name}님!</h1>
+              <p className="text-sm text-gray-500 mt-1">{goals.targetRole} · {goals.targetIndustry} 준비 중</p>
             </div>
             <span className="text-3xl">👋</span>
           </div>
         </div>
 
-        {/* 요약 카드들 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SummaryCard title="기본 정보" icon="📋">
-            <InfoRow label="학교" value={`${basicInfo.school} ${basicInfo.major}`} />
-            <InfoRow label="이메일" value={basicInfo.email} />
-            {basicInfo.languageScores.length > 0 && (
-              <InfoRow
-                label="어학"
-                value={basicInfo.languageScores.map((s) => `${s.type} ${s.score}`).join(", ")}
-              />
-            )}
-            {basicInfo.certifications.length > 0 && (
-              <InfoRow label="자격증" value={basicInfo.certifications.join(", ")} />
-            )}
-          </SummaryCard>
+        {/* 내 스펙 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-800">내 스펙</h2>
+            <button
+              type="button"
+              onClick={() => setShowSpecEdit(true)}
+              className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+            >
+              편집
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <SpecCard title="기본 정보" icon="📋">
+              <InfoRow label="학교" value={`${basicInfo.school} ${basicInfo.major}`} />
+              <InfoRow label="이메일" value={basicInfo.email} />
+              {basicInfo.languageScores.length > 0 && (
+                <InfoRow label="어학" value={basicInfo.languageScores.map((s) => `${s.type} ${s.score}`).join(", ")} />
+              )}
+              {basicInfo.certifications.length > 0 && (
+                <InfoRow label="자격증" value={basicInfo.certifications.join(", ")} />
+              )}
+            </SpecCard>
+            <SpecCard title="목표" icon="🎯">
+              <InfoRow label="직무" value={goals.targetRole} />
+              <InfoRow label="업종" value={goals.targetIndustry} />
+              <InfoRow label="규모" value={{ large: "대기업", startup: "스타트업", public: "공기업", any: "무관" }[goals.companySize]} />
+            </SpecCard>
+            <SpecCard title="경험 요약" icon="💼">
+              <p className="text-xs text-gray-500 leading-relaxed line-clamp-4">{spec.experienceRaw.text}</p>
+            </SpecCard>
+          </div>
 
-          <SummaryCard title="목표" icon="🎯">
-            <InfoRow label="희망 직무" value={goals.targetRole} />
-            <InfoRow label="희망 업종" value={goals.targetIndustry} />
-            <InfoRow
-              label="기업 규모"
-              value={
-                { large: "대기업", startup: "스타트업", public: "공기업", any: "무관" }[
-                  goals.companySize
-                ]
-              }
-            />
-            {goals.weakPoints.length > 0 && (
-              <InfoRow label="집중 영역" value={goals.weakPoints.join(", ")} />
-            )}
-          </SummaryCard>
+          {/* 경험 정리 버튼 */}
+          <button
+            type="button"
+            onClick={() => {
+              openPanel("organize", "경험 자동 정리", "/api/organize-experience", null);
+              runGenerate("/api/organize-experience", null);
+            }}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2 text-sm text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors font-medium"
+          >
+            <span>🗂️</span> 경험 자동 정리
+          </button>
+        </div>
 
-          <SummaryCard title="경험 요약" icon="💼">
-            <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">
-              {experienceRaw.text}
+        {/* 지원 공고 목록 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-800">지원 공고</h2>
+            <button
+              type="button"
+              onClick={() => setAddAppFor("new")}
+              className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            >
+              + 공고 추가
+            </button>
+          </div>
+
+          {applications.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">
+              아직 추가된 공고가 없어요.<br />
+              <span className="text-xs">공고를 추가하면 맞춤형 이력서·자소서를 생성할 수 있어요.</span>
             </p>
-          </SummaryCard>
+          ) : (
+            <div className="space-y-3">
+              {applications.map((app) => (
+                <div key={app.id} className="border border-gray-100 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm">{app.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(app.createdAt).toLocaleDateString("ko-KR")}
+                        {app.jobPosting.url && (
+                          <span className="ml-2 text-blue-400 truncate max-w-[200px] inline-block align-bottom">
+                            {app.jobPosting.url.replace(/^https?:\/\//, "").substring(0, 40)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setAddAppFor(app)}
+                        className="text-xs px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 transition-colors"
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteApp(app.id)}
+                        className="text-xs px-2 py-1 border border-red-100 rounded-lg hover:bg-red-50 text-red-400 transition-colors"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
 
-          <SummaryCard title="채용 공고" icon="📄">
-            {hasPosting ? (
-              <>
-                {jobPosting.url && (
-                  <p className="text-sm text-blue-600 break-all line-clamp-2">{jobPosting.url}</p>
-                )}
-                {jobPosting.text && (
-                  <p className="text-sm text-gray-600 line-clamp-4">{jobPosting.text}</p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-gray-400">공고가 입력되지 않았어요.</p>
-            )}
-          </SummaryCard>
+                  {/* AI 기능 버튼 */}
+                  <div className="flex gap-2">
+                    {(Object.entries(DOC_FEATURES) as [DocFeature, typeof DOC_FEATURES[DocFeature]][]).map(
+                      ([key, feat]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            openPanel(key, `${feat.label} — ${app.label}`, feat.endpoint, app);
+                            runGenerate(feat.endpoint, app);
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg transition-colors"
+                        >
+                          <span>{feat.icon}</span>{feat.label}
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* API 키 설정 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-base">🔑</span>
+              <span>🔑</span>
               <span className="text-sm font-semibold text-gray-700">API 키 설정</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowKeyInput((v) => !v)}
-              className="text-xs text-blue-600 hover:underline"
-            >
+            <button type="button" onClick={() => setShowKeyInput((v) => !v)} className="text-xs text-blue-600 hover:underline">
               {showKeyInput ? "닫기" : "설정"}
             </button>
           </div>
-
-          <div className="flex gap-4 text-xs text-gray-500">
-            <span className={`flex items-center gap-1 ${apiKey ? "text-green-600" : "text-gray-400"}`}>
-              {apiKey ? "✓" : "○"} Claude (Anthropic)
-            </span>
-            <span className={`flex items-center gap-1 ${geminiKey ? "text-green-600" : "text-gray-400"}`}>
-              {geminiKey ? "✓" : "○"} Gemini (Google)
-            </span>
+          <div className="flex gap-4 text-xs">
+            <span className={apiKey ? "text-green-600" : "text-gray-400"}>{apiKey ? "✓" : "○"} Claude</span>
+            <span className={geminiKey ? "text-green-600" : "text-gray-400"}>{geminiKey ? "✓" : "○"} Gemini</span>
           </div>
-
           {showKeyInput && (
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Anthropic API 키</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => saveApiKey(e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                />
+                <input type="password" value={apiKey} onChange={(e) => saveApiKey(e.target.value)} placeholder="sk-ant-..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Gemini API 키 (교차검증용)</label>
-                <input
-                  type="password"
-                  value={geminiKey}
-                  onChange={(e) => saveGeminiKey(e.target.value)}
-                  placeholder="AIza..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                />
+                <input type="password" value={geminiKey} onChange={(e) => saveGeminiKey(e.target.value)} placeholder="AIza..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
               </div>
-              <p className="text-xs text-gray-400">
-                키는 브라우저 로컬스토리지에만 저장됩니다. 서버 환경변수(ANTHROPIC_API_KEY, GEMINI_API_KEY)가 있으면 생략 가능합니다.
-              </p>
+              <p className="text-xs text-gray-400">키는 브라우저 로컬스토리지에만 저장됩니다. 서버 환경변수(ANTHROPIC_API_KEY, GEMINI_API_KEY)가 있으면 생략 가능합니다.</p>
             </div>
           )}
         </div>
 
-        {/* AI 기능 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3">
-          <h2 className="font-bold text-gray-800">AI 기능</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {(Object.entries(FEATURE_CONFIG) as [FeatureKey, (typeof FEATURE_CONFIG)[FeatureKey]][]).map(
-              ([key, item]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => runFeature(key)}
-                  disabled={loading && activeFeature === key}
-                  className="flex flex-col items-start gap-1.5 p-3 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-left rounded-xl border border-blue-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <span className="text-xl">{item.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 leading-tight">{item.label}</p>
-                    <p className="text-xs text-blue-500 mt-0.5">{item.description}</p>
-                  </div>
-                </button>
-              )
-            )}
-          </div>
-          {!apiKey && (
-            <p className="text-xs text-amber-600">
-              ⚠ API 키를 입력하거나 서버에 환경변수를 설정해야 AI 기능을 사용할 수 있습니다.
-            </p>
-          )}
-        </div>
-
         <div className="text-center">
-          <button
-            type="button"
-            onClick={onReset}
-            className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
-          >
+          <button type="button" onClick={onReset} className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2">
             처음부터 다시 입력하기
           </button>
         </div>
       </div>
 
-      {activeFeature && (
+      {/* 모달들 */}
+      {showSpecEdit && (
+        <SpecEditModal
+          spec={spec}
+          onSave={(updated) => { onSpecChange(updated); setShowSpecEdit(false); }}
+          onClose={() => setShowSpecEdit(false)}
+        />
+      )}
+      {addAppFor !== null && (
+        <AddApplicationModal
+          initial={addAppFor === "new" ? undefined : addAppFor}
+          onSave={handleSaveApp}
+          onClose={() => setAddAppFor(null)}
+        />
+      )}
+      {isPanelOpen && (
         <AiResultPanel
-          title={FEATURE_CONFIG[activeFeature].label}
+          title={panelTitle}
           content={result}
           loading={loading}
           onClose={() => {
-            if (!loading && !verifying) setActiveFeature(null);
+            if (!loading && !verifying) {
+              setPanelEndpoint("");
+              setResult("");
+              setVerifyResult("");
+            }
           }}
-          onCopy={handleCopy}
+          onCopy={() => {
+            navigator.clipboard.writeText(result).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            });
+          }}
           copied={copied}
           onVerify={() => runVerify(result)}
           verifying={verifying}
           verifyResult={verifyResult}
-          canVerify={!!(geminiKey || process.env.NEXT_PUBLIC_HAS_GEMINI_KEY)}
+          canVerify={!!geminiKey}
         />
       )}
     </div>
   );
 }
 
-function SummaryCard({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: string;
-  children: React.ReactNode;
-}) {
+function SpecCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
-      <div className="flex items-center gap-2">
-        <span>{icon}</span>
-        <h3 className="font-semibold text-gray-700 text-sm">{title}</h3>
+    <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm">{icon}</span>
+        <span className="text-xs font-semibold text-gray-600">{title}</span>
       </div>
-      <div className="space-y-1.5">{children}</div>
+      <div className="space-y-1">{children}</div>
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2 text-sm">
-      <span className="text-gray-400 shrink-0 w-16">{label}</span>
-      <span className="text-gray-700 break-all">{value}</span>
+    <div className="flex gap-1.5 text-xs">
+      <span className="text-gray-400 shrink-0 w-10">{label}</span>
+      <span className="text-gray-600 break-all">{value}</span>
     </div>
   );
 }

@@ -34,9 +34,18 @@ export interface JobPosting {
   text: string;
 }
 
-export interface UserProfile {
+export interface UserSpec {
   basicInfo: BasicInfo;
   experienceRaw: ExperienceRaw;
   goals: Goals;
-  jobPosting: JobPosting;
 }
+
+export interface Application {
+  id: string;
+  label: string;
+  jobPosting: JobPosting;
+  createdAt: string;
+}
+
+// Legacy — kept for backwards compat
+export type UserProfile = UserSpec & { jobPosting: JobPosting };

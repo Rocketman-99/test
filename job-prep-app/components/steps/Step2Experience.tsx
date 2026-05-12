@@ -7,6 +7,7 @@ interface Props {
   initialData: Partial<ExperienceRaw>;
   onNext: (data: ExperienceRaw) => void;
   onBack: () => void;
+  submitLabel?: string;
 }
 
 const PLACEHOLDER = `경험을 자유롭게 작성해주세요. 형식에 맞추지 않아도 됩니다.
@@ -17,7 +18,7 @@ const PLACEHOLDER = `경험을 자유롭게 작성해주세요. 형식에 맞추
 - 공모전 나가서 데이터분석 대상 받은 적 있어요. 서울시 공공데이터로 버스 노선 최적화 분석했어요.
 - 알바는 카페, 과외 등 했고 특별한 건 없는데 시간 관리 잘 하는 편이에요.`;
 
-export default function Step2Experience({ initialData, onNext, onBack }: Props) {
+export default function Step2Experience({ initialData, onNext, onBack, submitLabel = "다음 단계 →" }: Props) {
   const [text, setText] = useState(initialData.text ?? "");
   const [error, setError] = useState("");
 
@@ -88,7 +89,7 @@ export default function Step2Experience({ initialData, onNext, onBack }: Props) 
           onClick={handleNext}
           className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
         >
-          다음 단계 →
+          {submitLabel}
         </button>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { BasicInfo, LanguageScore } from "@/types/user";
 interface Props {
   initialData: Partial<BasicInfo>;
   onNext: (data: BasicInfo) => void;
+  submitLabel?: string;
 }
 
 const EMPTY_BASIC: BasicInfo = {
@@ -21,7 +22,7 @@ const EMPTY_BASIC: BasicInfo = {
   certifications: [],
 };
 
-export default function Step1BasicInfo({ initialData, onNext }: Props) {
+export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다음 단계 →" }: Props) {
   const [form, setForm] = useState<BasicInfo>({ ...EMPTY_BASIC, ...initialData });
   const [certInput, setCertInput] = useState("");
   const [errors, setErrors] = useState<Partial<Record<keyof BasicInfo, string>>>({});
@@ -255,7 +256,7 @@ export default function Step1BasicInfo({ initialData, onNext }: Props) {
           onClick={handleNext}
           className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
         >
-          다음 단계 →
+          {submitLabel}
         </button>
       </div>
     </div>

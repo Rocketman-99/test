@@ -7,6 +7,7 @@ interface Props {
   initialData: Partial<Goals>;
   onNext: (data: Goals) => void;
   onBack: () => void;
+  submitLabel?: string;
 }
 
 const ROLES = ["프론트엔드 개발", "백엔드 개발", "풀스택 개발", "데이터 분석", "AI/ML 엔지니어", "기획/PM", "마케터", "디자이너", "영업/MD", "경영/전략", "회계/재무", "HR", "기타"];
@@ -21,7 +22,7 @@ const EMPTY_GOALS: Goals = {
   weakPoints: [],
 };
 
-export default function Step3Goals({ initialData, onNext, onBack }: Props) {
+export default function Step3Goals({ initialData, onNext, onBack, submitLabel = "다음 단계 →" }: Props) {
   const [form, setForm] = useState<Goals>({ ...EMPTY_GOALS, ...initialData });
   const [errors, setErrors] = useState<{ role?: string; industry?: string }>({});
 
@@ -197,7 +198,7 @@ export default function Step3Goals({ initialData, onNext, onBack }: Props) {
           onClick={handleNext}
           className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
         >
-          다음 단계 →
+          {submitLabel}
         </button>
       </div>
     </div>
