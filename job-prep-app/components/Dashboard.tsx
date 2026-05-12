@@ -90,16 +90,32 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     setAddAppFor(null);
   }
 
+  function getCacheKey(featureKey: string, appId: string | null) {
+    return `job-prep-result:${featureKey}:${appId ?? "no-app"}`;
+  }
+
+  function loadCachedResult(featureKey: string, appId: string | null): string {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(getCacheKey(featureKey, appId)) ?? "";
+  }
+
+  function saveCachedResult(featureKey: string, appId: string | null, value: string) {
+    if (typeof window === "undefined" || !value || value.startsWith("[오류]")) return;
+    localStorage.setItem(getCacheKey(featureKey, appId), value);
+  }
+
   const openPanel = useCallback(
     (featureKey: DocFeature | "organize", title: string, endpoint: string, app: Application | null) => {
       setPanelTitle(title);
       setPanelEndpoint(endpoint);
       setPanelApp(app);
       setActiveFeatureKey(featureKey);
-      setResult("");
       setVerifyResult("");
       setCopied(false);
+      const cached = loadCachedResult(featureKey, app?.id ?? null);
+      setResult(cached);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -144,6 +160,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           accumulated += decoder.decode(value, { stream: true });
           setResult(accumulated);
         }
+        saveCachedResult(activeFeatureKey ?? "", app?.id ?? null, accumulated);
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           setResult("[오류] 네트워크 오류가 발생했습니다.");
@@ -152,7 +169,8 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         setLoading(false);
       }
     },
-    [spec, apiKey]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [spec, apiKey, activeFeatureKey]
   );
 
   const runVerify = useCallback(
