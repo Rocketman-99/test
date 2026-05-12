@@ -282,7 +282,12 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">안녕하세요, {basicInfo.name}님!</h1>
-              <p className="text-sm text-gray-500 mt-1">{(Array.isArray(goals.targetRole) ? goals.targetRole : [goals.targetRole]).join(", ")} · {(Array.isArray(goals.targetIndustry) ? goals.targetIndustry : [goals.targetIndustry]).join(", ")} 준비 중</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {[
+                  (Array.isArray(goals.targetRole) ? goals.targetRole : [goals.targetRole]).filter(Boolean).join(", ") || "직무 미설정",
+                  (Array.isArray(goals.targetIndustry) ? goals.targetIndustry : [goals.targetIndustry]).filter(Boolean).join(", ") || "업종 미설정",
+                ].join(" · ")} 준비 중
+              </p>
             </div>
             <span className="text-3xl">👋</span>
           </div>
@@ -312,8 +317,8 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
               )}
             </SpecCard>
             <SpecCard title="목표" icon="🎯">
-              <InfoRow label="직무" value={(Array.isArray(goals.targetRole) ? goals.targetRole : [goals.targetRole]).join(", ")} />
-              <InfoRow label="업종" value={(Array.isArray(goals.targetIndustry) ? goals.targetIndustry : [goals.targetIndustry]).join(", ")} />
+              <InfoRow label="직무" value={(Array.isArray(goals.targetRole) ? goals.targetRole : [goals.targetRole]).filter(Boolean).join(", ") || "미설정"} />
+              <InfoRow label="업종" value={(Array.isArray(goals.targetIndustry) ? goals.targetIndustry : [goals.targetIndustry]).filter(Boolean).join(", ") || "미설정"} />
               <InfoRow label="규모" value={{ large: "대기업", startup: "스타트업", public: "공기업", any: "무관" }[goals.companySize]} />
             </SpecCard>
             <SpecCard title="경험 요약" icon="💼">

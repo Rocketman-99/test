@@ -18,13 +18,20 @@ export function loadSpec(): Partial<UserSpec> {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      // string → string[] 마이그레이션
+      // string → string[] 마이그레이션, 그리고 글자 배열(spread 오류) 정리
       if (parsed.goals) {
         if (typeof parsed.goals.targetRole === "string") {
           parsed.goals.targetRole = parsed.goals.targetRole ? [parsed.goals.targetRole] : [];
         }
         if (typeof parsed.goals.targetIndustry === "string") {
           parsed.goals.targetIndustry = parsed.goals.targetIndustry ? [parsed.goals.targetIndustry] : [];
+        }
+        // 글자 배열 제거 (예: ["프","론","트",...] → 유효한 선택지만 유지)
+        if (Array.isArray(parsed.goals.targetRole)) {
+          parsed.goals.targetRole = parsed.goals.targetRole.filter((v: string) => typeof v === "string" && v.length >= 2);
+        }
+        if (Array.isArray(parsed.goals.targetIndustry)) {
+          parsed.goals.targetIndustry = parsed.goals.targetIndustry.filter((v: string) => typeof v === "string" && v.length >= 2);
         }
       }
       return parsed;
