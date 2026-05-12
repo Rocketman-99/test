@@ -64,7 +64,7 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="예: 카카오 백엔드, 네이버 기획 등"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
             />
             <p className="text-xs text-gray-400">비워두면 URL 도메인으로 자동 설정됩니다.</p>
           </div>
@@ -91,7 +91,7 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setError(""); }}
                 placeholder="https://www.wanted.co.kr/wd/..."
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors
+                className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors
                   ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
               />
               {error && <p className="text-xs text-red-500">{error}</p>}
@@ -103,7 +103,7 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
                 onChange={(e) => { setText(e.target.value); setError(""); }}
                 placeholder="채용 공고 내용을 복사해서 붙여넣으세요."
                 rows={8}
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors resize-none
+                className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors resize-none
                   ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
               />
               <div className="flex justify-between">

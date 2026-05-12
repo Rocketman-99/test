@@ -131,7 +131,7 @@ export default function AiResultPanel({
             <textarea
               value={localContent}
               onChange={(e) => setLocalContent(e.target.value)}
-              className="w-full h-96 px-4 py-3 border border-blue-300 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y font-mono"
+              className="w-full h-96 px-4 py-3 border border-blue-300 rounded-xl text-sm text-gray-900 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y font-mono"
             />
           )}
 
@@ -154,7 +154,7 @@ export default function AiResultPanel({
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleRevise()}
                   placeholder="예: 더 간결하게, 공격적인 어조로, 직무 역량 부각"
                   disabled={busy}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50"
                 />
                 <button
                   type="button"
