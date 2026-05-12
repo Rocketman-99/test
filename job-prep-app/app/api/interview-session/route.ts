@@ -24,10 +24,11 @@ const TYPE_GUIDE: Record<string, string> = {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { profile, messages, settings, apiKey } = body as {
+  const { profile, messages, settings, questionBank, apiKey } = body as {
     profile: UserProfile;
     messages: Anthropic.MessageParam[];
     settings: InterviewSettings;
+    questionBank?: string;
     apiKey?: string;
   };
 
@@ -48,10 +49,15 @@ export async function POST(request: Request) {
         ? `지금은 마지막(${questionNumber}번째) 질문입니다. 답변에 피드백 후 종합 평가를 제공하고 면접을 마무리해주세요.`
         : `지금은 ${questionNumber}번째 답변에 대한 피드백 후 ${questionNumber + 1}번째 질문을 해주세요.`;
 
+  const questionBankSection = questionBank
+    ? `\n[사전 준비된 질문 뱅크]\n아래 질문 뱅크를 면접 진행의 주요 재료로 활용하세요. 순서에 얽매이지 말고 대화 흐름에 맞게 자연스럽게 선택·변형해서 사용하세요.\n${questionBank}\n`
+    : "";
+
   const systemPrompt = `당신은 전문 채용 면접관입니다. 아래 지원자의 정보를 숙지하고 실제 면접처럼 진행해주세요.
 
 [지원자 프로필]
 ${profileContext}
+${questionBankSection}
 
 [면접 설정]
 - 총 질문 수: ${totalQuestions}개
