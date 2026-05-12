@@ -434,6 +434,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             application={interviewSession.app}
             settings={interviewSession.settings}
             apiKey={apiKey}
+            geminiKey={geminiKey}
             onClose={() => setInterviewSession(null)}
           />
         ) : (

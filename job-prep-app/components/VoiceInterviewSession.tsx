@@ -11,13 +11,14 @@ interface Message {
 }
 
 type Phase = "preparing" | "ready" | "interviewing";
-type TurnState = "processing" | "ai_speaking" | "listening" | "finished";
+type TurnState = "processing" | "ai_speaking" | "recording_ready" | "recording" | "analyzing" | "finished";
 
 interface Props {
   spec: UserSpec;
   application: Application | null;
   settings: InterviewSettings;
   apiKey: string;
+  geminiKey: string;
   onClose: () => void;
 }
 
@@ -36,11 +37,21 @@ function stripMarkdown(text: string): string {
     .replace(/\[(.+?)\]\(.+?\)/g, "$1")
     .replace(/^[-*+]\s+/gm, "")
     .replace(/^\d+\.\s+/gm, "")
+    .replace(/【발화 분석】[\s\S]*$/, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
 }
 
-export default function VoiceInterviewSession({ spec, application, settings, apiKey, onClose }: Props) {
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+export default function VoiceInterviewSession({ spec, application, settings, apiKey, geminiKey, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>("preparing");
   const [questionBank, setQuestionBank] = useState("");
   const [bankProgress, setBankProgress] = useState("");
@@ -48,17 +59,14 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   const [messages, setMessages] = useState<Message[]>([]);
   const [turnState, setTurnState] = useState<TurnState>("processing");
   const [questionNumber, setQuestionNumber] = useState(0);
+  const [analyzeError, setAnalyzeError] = useState("");
 
-  const [transcript, setTranscript] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [sttSupported, setSttSupported] = useState(true);
-  const [fallbackText, setFallbackText] = useState("");
 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const profile = {
@@ -67,13 +75,9 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   };
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) setSttSupported(false);
-
     return () => {
       window.speechSynthesis?.cancel();
-      recognitionRef.current?.abort();
+      mediaRecorderRef.current?.stop();
     };
   }, []);
 
@@ -97,9 +101,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
           apiKey: apiKey || undefined,
         }),
       });
-
       if (!res.ok || !res.body) { setQuestionBank("[오류]"); setPhase("ready"); return; }
-
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
@@ -139,11 +141,9 @@ export default function VoiceInterviewSession({ spec, application, settings, api
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "ko-KR";
     utterance.rate = 1.0;
-
     const voices = window.speechSynthesis.getVoices();
     const koVoice = voices.find((v) => v.lang.startsWith("ko"));
     if (koVoice) utterance.voice = koVoice;
-
     utterance.onend = onEnd;
     utterance.onerror = () => onEnd();
     window.speechSynthesis.speak(utterance);
@@ -151,53 +151,95 @@ export default function VoiceInterviewSession({ spec, application, settings, api
 
   function skipTTS() {
     window.speechSynthesis.cancel();
-    beginListening();
+    setTurnState("recording_ready");
   }
 
-  // STT
-  function beginListening() {
-    setTranscript("");
-    setFallbackText("");
-    setElapsed(0);
-    setTimerRunning(true);
-    setTurnState("listening");
-    isListeningRef.current = true;
+  // Recording
+  async function startRecording() {
+    setAnalyzeError("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/ogg";
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "ko-KR";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognitionRef.current = recognition;
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      const t = Array.from(e.results).map((r: any) => r[0].transcript).join("");
-      setTranscript(t);
-    };
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
 
-    recognition.onend = () => {
-      // 사용자가 아직 제출 안 했으면 자동 재시작
-      if (isListeningRef.current) {
-        try { recognition.start(); } catch { /* already started */ }
-      }
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (e: any) => {
-      if (e.error === "not-allowed") setSttSupported(false);
-    };
-
-    recognition.start();
+      recorder.start(200);
+      setElapsed(0);
+      setTimerRunning(true);
+      setTurnState("recording");
+    } catch {
+      setAnalyzeError("마이크 접근 권한이 필요합니다. 브라우저 설정에서 허용해주세요.");
+    }
   }
 
-  function stopListening() {
-    isListeningRef.current = false;
-    recognitionRef.current?.stop();
+  async function stopAndAnalyze() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+
     setTimerRunning(false);
+    setTurnState("analyzing");
+
+    await new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+      recorder.stop();
+      recorder.stream.getTracks().forEach((t) => t.stop());
+    });
+
+    const mimeType = recorder.mimeType.split(";")[0];
+    const blob = new Blob(audioChunksRef.current, { type: mimeType });
+
+    try {
+      const audioBase64 = await blobToBase64(blob);
+      const res = await fetch("/api/analyze-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioBase64,
+          audioMimeType: mimeType,
+          geminiApiKey: geminiKey || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setAnalyzeError(err.error ?? "음성 분석 실패");
+        setTurnState("recording_ready");
+        return;
+      }
+
+      const { transcript, deliveryNotes } = await res.json() as { transcript: string; deliveryNotes: string };
+
+      if (!transcript?.trim()) {
+        setAnalyzeError("음성이 인식되지 않았습니다. 다시 녹음해주세요.");
+        setTurnState("recording_ready");
+        return;
+      }
+
+      // 전사 + 발화 분석을 사용자 메시지로 구성
+      const answerElapsed = elapsed;
+      const content = `${transcript}\n\n【발화 분석】\n${deliveryNotes}`;
+      const userMsg: Message = { role: "user", content, elapsed: answerElapsed };
+      const newHistory = [...messages, userMsg];
+      setMessages(newHistory);
+
+      const nextQ = questionNumber + 1;
+      setQuestionNumber(nextQ);
+      sendToAI(newHistory, nextQ, questionBank);
+    } catch {
+      setAnalyzeError("음성 분석 중 오류가 발생했습니다.");
+      setTurnState("recording_ready");
+    }
   }
 
   const sendToAI = useCallback(async (history: Message[], qNum: number, bank: string) => {
@@ -230,7 +272,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
           next[next.length - 1] = { role: "ai", content: "[오류] 서버 요청에 실패했습니다." };
           return next;
         });
-        setTurnState("listening");
+        setTurnState("recording_ready");
         return;
       }
 
@@ -253,7 +295,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
         speakText(accumulated, () => {});
       } else {
         setTurnState("ai_speaking");
-        speakText(accumulated, () => beginListening());
+        speakText(accumulated, () => setTurnState("recording_ready"));
       }
     } catch {
       setMessages((prev) => {
@@ -261,7 +303,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
         next[next.length - 1] = { role: "ai", content: "[오류] 네트워크 오류가 발생했습니다." };
         return next;
       });
-      setTurnState("listening");
+      setTurnState("recording_ready");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings, profile, apiKey]);
@@ -269,23 +311,6 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   function handleStart() {
     setPhase("interviewing");
     sendToAI([], 0, questionBank);
-  }
-
-  function handleSubmit() {
-    const answer = sttSupported ? transcript : fallbackText;
-    if (!answer.trim() || turnState !== "listening") return;
-
-    stopListening();
-    const answerElapsed = elapsed;
-    const userMsg: Message = { role: "user", content: answer.trim(), elapsed: answerElapsed };
-    const newHistory = [...messages, userMsg];
-    setMessages(newHistory);
-    setTranscript("");
-    setFallbackText("");
-
-    const nextQ = questionNumber + 1;
-    setQuestionNumber(nextQ);
-    sendToAI(newHistory, nextQ, questionBank);
   }
 
   const difficultyLabel = settings.difficulty === "normal" ? "일반" : "압박";
@@ -306,7 +331,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
             <p className="text-gray-400 text-sm">
               {phase === "preparing"
                 ? "프로필과 채용 공고를 분석해 맞춤 질문을 생성하고 있어요."
-                : "질문 뱅크 준비 완료. 면접관의 말을 듣고 음성으로 답변하세요."}
+                : "Gemini가 음성을 직접 분석합니다. 말투·자신감·속도까지 피드백해드려요."}
             </p>
           </div>
 
@@ -332,19 +357,22 @@ export default function VoiceInterviewSession({ spec, application, settings, api
                     {difficultyLabel}
                   </span>
                   <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded-full">질문 {settings.totalQuestions}개</span>
-                  <span className="text-xs px-2 py-1 bg-purple-900 text-purple-300 rounded-full">🎙️ 음성 모드</span>
+                  <span className="text-xs px-2 py-1 bg-purple-900 text-purple-300 rounded-full">🎙️ 음성 분석</span>
                   {application && (
                     <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded-full">{application.label}</span>
                   )}
                 </div>
-                {!sttSupported && (
+                <p className="text-xs text-gray-500 pt-1">
+                  Gemini AI가 음성 내용 + 발화 방식을 분석 후 Claude가 면접 피드백을 드립니다.
+                </p>
+                {!geminiKey && (
                   <p className="text-xs text-yellow-400 pt-1">
-                    ⚠ 이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 권장합니다. 텍스트 입력으로 대체됩니다.
+                    ⚠ Gemini API 키가 없습니다. 대시보드 설정에서 입력해주세요.
                   </p>
                 )}
               </div>
-              <button type="button" onClick={handleStart}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-base transition-colors">
+              <button type="button" onClick={handleStart} disabled={!geminiKey && !process.env.GEMINI_API_KEY}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold text-base transition-colors">
                 음성 면접 시작 →
               </button>
               <button type="button" onClick={onClose}
@@ -397,7 +425,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-2xl mx-auto space-y-4">
 
-          {/* 이전 대화 이력 (현재 AI 메시지 제외) */}
+          {/* 이전 대화 이력 */}
           {messages.length > 1 && (
             <div className="space-y-2 opacity-50">
               {messages.slice(0, -1).map((msg, i) => (
@@ -411,7 +439,8 @@ export default function VoiceInterviewSession({ spec, application, settings, api
                       {msg.elapsed !== undefined && (
                         <span className="text-blue-500 mr-2">{formatTime(msg.elapsed)}</span>
                       )}
-                      {msg.content}
+                      {/* 발화 분석 섹션 제거하고 전사 내용만 표시 */}
+                      {msg.content.split("【발화 분석】")[0].trim()}
                     </div>
                   )}
                 </div>
@@ -419,7 +448,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
             </div>
           )}
 
-          {/* 현재 AI 메시지 (크게 표시) */}
+          {/* 현재 AI 메시지 */}
           {currentAiMsg && (
             <div className={`bg-gray-800 rounded-2xl p-5 border transition-all
               ${turnState === "ai_speaking" ? "border-blue-500/50" : "border-gray-700"}`}>
@@ -433,8 +462,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
                   {turnState === "ai_speaking" && (
                     <span className="flex gap-0.5 items-end h-4">
                       {[0, 100, 200, 300, 400].map((d, idx) => (
-                        <span key={d}
-                          className="w-0.5 bg-blue-400 rounded-full animate-bounce"
+                        <span key={d} className="w-0.5 bg-blue-400 rounded-full animate-bounce"
                           style={{ height: `${[8, 14, 10, 16, 8][idx]}px`, animationDelay: `${d}ms` }} />
                       ))}
                     </span>
@@ -462,22 +490,17 @@ export default function VoiceInterviewSession({ spec, application, settings, api
             </div>
           )}
 
-          {/* 답변 중 라이브 트랜스크립트 미리보기 */}
-          {turnState === "listening" && (transcript || fallbackText) && (
-            <div className="flex justify-end">
-              <div className="bg-blue-900/40 border border-blue-700/50 rounded-2xl px-4 py-3 max-w-md">
-                <p className="text-blue-200 text-sm leading-relaxed">{sttSupported ? transcript : fallbackText}</p>
-              </div>
-            </div>
-          )}
-
           <div ref={bottomRef} />
         </div>
       </div>
 
       {/* 하단 컨트롤 */}
       <div className="px-4 py-5 bg-gray-900 border-t border-gray-800">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-3">
+
+          {analyzeError && (
+            <p className="text-xs text-red-400 text-center">{analyzeError}</p>
+          )}
 
           {turnState === "processing" && (
             <div className="flex justify-center items-center gap-2 text-gray-400 text-sm py-3">
@@ -491,13 +514,24 @@ export default function VoiceInterviewSession({ spec, application, settings, api
             </div>
           )}
 
+          {turnState === "analyzing" && (
+            <div className="flex justify-center items-center gap-2 text-purple-300 text-sm py-3">
+              <span className="flex gap-1">
+                {[0, 150, 300].map((d) => (
+                  <span key={d} className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"
+                    style={{ animationDelay: `${d}ms` }} />
+                ))}
+              </span>
+              <span>Gemini가 음성 분석 중… (내용 + 발화 방식)</span>
+            </div>
+          )}
+
           {turnState === "ai_speaking" && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex justify-center items-center gap-2 text-blue-300 text-sm">
                 <span className="flex gap-0.5 items-end h-5">
                   {[0, 100, 200, 300, 400].map((d, idx) => (
-                    <span key={d}
-                      className="w-1 bg-blue-400 rounded-full animate-bounce"
+                    <span key={d} className="w-1 bg-blue-400 rounded-full animate-bounce"
                       style={{ height: `${[10, 18, 12, 20, 10][idx]}px`, animationDelay: `${d}ms` }} />
                   ))}
                 </span>
@@ -510,56 +544,38 @@ export default function VoiceInterviewSession({ spec, application, settings, api
             </div>
           )}
 
-          {turnState === "listening" && (
+          {turnState === "recording_ready" && (
+            <div className="space-y-2">
+              {elapsed > 0 && elapsed > 90 && (
+                <p className={`text-xs text-center ${elapsed > 120 ? "text-red-400" : "text-yellow-400"}`}>
+                  {elapsed > 120 ? "⚠ 2분 초과 — 답변을 마무리해주세요" : "💡 1분 30초 경과 — 곧 마무리해주세요"}
+                </p>
+              )}
+              <button type="button" onClick={startRecording}
+                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-base transition-colors flex items-center justify-center gap-3">
+                <span className="text-2xl">🎙️</span>
+                <span>녹음 시작</span>
+              </button>
+              <p className="text-xs text-gray-500 text-center">버튼을 눌러 답변을 녹음하세요</p>
+            </div>
+          )}
+
+          {turnState === "recording" && (
             <div className="space-y-3">
               {elapsed > 90 && (
                 <p className={`text-xs text-center ${elapsed > 120 ? "text-red-400" : "text-yellow-400"}`}>
                   {elapsed > 120 ? "⚠ 2분 초과 — 답변을 마무리해주세요" : "💡 1분 30초 경과 — 곧 마무리해주세요"}
                 </p>
               )}
-
-              {sttSupported ? (
-                <div className="flex items-center gap-3">
-                  {/* 마이크 애니메이션 */}
-                  <div className="relative shrink-0">
-                    <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center">
-                      <span className="text-2xl">🎙️</span>
-                    </div>
-                    <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-25" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-500 text-xs mb-1">말씀하세요… (한국어)</p>
-                    <p className="text-gray-200 text-sm leading-relaxed">
-                      {transcript || <span className="text-gray-600 italic">음성 인식 대기 중…</span>}
-                    </p>
-                  </div>
-                  <button type="button" onClick={handleSubmit}
-                    disabled={!transcript.trim()}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
-                    제출
-                  </button>
-                </div>
-              ) : (
-                /* STT 미지원 시 텍스트 입력 폴백 */
-                <div className="space-y-2">
-                  <p className="text-xs text-yellow-400">⚠ 음성 인식 미지원 — 텍스트로 입력해주세요.</p>
-                  <div className="flex gap-2">
-                    <textarea
-                      value={fallbackText}
-                      onChange={(e) => setFallbackText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                      placeholder="답변을 입력하세요. (Enter 제출 / Shift+Enter 줄바꿈)"
-                      rows={3}
-                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    />
-                    <button type="button" onClick={handleSubmit}
-                      disabled={!fallbackText.trim()}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed self-end">
-                      제출
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button type="button" onClick={stopAndAnalyze}
+                className="w-full py-4 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold text-base transition-colors flex items-center justify-center gap-3">
+                <span className="relative flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500" />
+                </span>
+                <span>녹음 중… 눌러서 완료</span>
+              </button>
+              <p className="text-xs text-gray-500 text-center">버튼을 누르면 Gemini가 음성을 분석합니다</p>
             </div>
           )}
 
@@ -572,6 +588,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
               </button>
             </div>
           )}
+
         </div>
       </div>
     </div>
