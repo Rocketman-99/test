@@ -44,6 +44,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const profile = {
     ...spec,
@@ -122,7 +123,15 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timerRunning]);
 
+  function stopAI() {
+    abortRef.current?.abort();
+  }
+
   const sendToAI = useCallback(async (history: Message[], qNum: number, bank: string) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     stopTimer();
 
@@ -151,6 +160,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
           questionBank: bank || undefined,
           apiKey: apiKey || undefined,
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
@@ -184,12 +194,14 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
         startTimer();
         setTimeout(() => textareaRef.current?.focus(), 100);
       }
-    } catch {
-      setMessages((prev) => {
-        const next = [...prev];
-        next[next.length - 1] = { role: "ai", content: "[오류] 네트워크 오류가 발생했습니다." };
-        return next;
-      });
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { role: "ai", content: "[오류] 네트워크 오류가 발생했습니다." };
+          return next;
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -374,10 +386,17 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
                 rows={3}
                 className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
               />
-              <button type="button" onClick={handleSubmit} disabled={loading || !answer.trim()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed self-end">
-                제출
-              </button>
+              {loading ? (
+                <button type="button" onClick={stopAI}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm transition-colors self-end">
+                  ■ 정지
+                </button>
+              ) : (
+                <button type="button" onClick={handleSubmit} disabled={!answer.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed self-end">
+                  제출
+                </button>
+              )}
             </div>
           </div>
         </div>

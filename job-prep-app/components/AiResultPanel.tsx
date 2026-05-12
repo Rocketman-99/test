@@ -8,6 +8,7 @@ interface Props {
   content: string;
   loading: boolean;
   onClose: () => void;
+  onStop: () => void;
   onCopy: () => void;
   copied: boolean;
   onRegenerate: () => void;
@@ -33,7 +34,7 @@ function toFilename(title: string) {
 
 export default function AiResultPanel({
   title, content, loading,
-  onClose, onCopy, copied,
+  onClose, onStop, onCopy, copied,
   onRegenerate, onRevise, revising,
   onVerify, verifying, verifyResult, canVerify,
 }: Props) {
@@ -211,9 +212,17 @@ export default function AiResultPanel({
 
         {/* 하단 상태 바 */}
         {busy && (content || verifyResult) && (
-          <div className="px-6 py-2 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-400">
-            <span className="inline-block w-3 h-3 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
-            {revising ? "수정 중…" : verifying ? "Gemini 검토 중…" : "생성 중…"}
+          <div className="px-6 py-2 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
+              {revising ? "수정 중…" : verifying ? "Gemini 검토 중…" : "생성 중…"}
+            </div>
+            {loading && (
+              <button type="button" onClick={onStop}
+                className="px-2 py-1 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors">
+                ■ 정지
+              </button>
+            )}
           </div>
         )}
       </div>

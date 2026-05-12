@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { UserSpec, Application } from "@/types/user";
 import { saveApplications } from "@/lib/store";
 import AiResultPanel from "./AiResultPanel";
@@ -55,6 +55,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [verifyResult, setVerifyResult] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [activeFeatureKey, setActiveFeatureKey] = useState<DocFeature | "organize" | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   function saveApiKey(key: string) {
     setApiKey(key);
@@ -102,8 +103,16 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     []
   );
 
+  function stopGenerate() {
+    abortRef.current?.abort();
+  }
+
   const runGenerate = useCallback(
     async (endpoint: string, app: Application | null) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setResult("");
       setLoading(true);
 
@@ -117,6 +126,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ profile: profileForAI, apiKey: apiKey || undefined }),
+          signal: controller.signal,
         });
 
         if (!res.ok || !res.body) {
@@ -134,8 +144,10 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           accumulated += decoder.decode(value, { stream: true });
           setResult(accumulated);
         }
-      } catch {
-        setResult("[오류] 네트워크 오류가 발생했습니다.");
+      } catch (err) {
+        if (err instanceof Error && err.name !== "AbortError") {
+          setResult("[오류] 네트워크 오류가 발생했습니다.");
+        }
       } finally {
         setLoading(false);
       }
@@ -495,6 +507,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
               setVerifyResult("");
             }
           }}
+          onStop={stopGenerate}
           onCopy={() => {
             navigator.clipboard.writeText(result).then(() => {
               setCopied(true);
