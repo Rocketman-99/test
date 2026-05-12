@@ -173,6 +173,58 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     [spec, panelApp, activeFeatureKey, geminiKey]
   );
 
+  const [revising, setRevising] = useState(false);
+
+  const runRevise = useCallback(
+    async (instruction: string) => {
+      setRevising(true);
+      setResult("");
+      setVerifyResult("");
+
+      const profileForAI = {
+        ...spec,
+        jobPosting: panelApp?.jobPosting ?? { url: "", text: "" },
+      };
+
+      const featureLabel = panelTitle.replace(/\s*—.*$/, "").trim();
+
+      try {
+        const res = await fetch("/api/revise", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile: profileForAI,
+            originalContent: result,
+            instruction,
+            featureLabel,
+            apiKey: apiKey || undefined,
+          }),
+        });
+
+        if (!res.ok || !res.body) {
+          setResult("[오류] 수정 요청에 실패했습니다.");
+          setRevising(false);
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          setResult(accumulated);
+        }
+      } catch {
+        setResult("[오류] 네트워크 오류가 발생했습니다.");
+      } finally {
+        setRevising(false);
+      }
+    },
+    [spec, panelApp, panelTitle, result, apiKey]
+  );
+
   const isPanelOpen = panelEndpoint !== "";
 
   return (
@@ -372,7 +424,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           content={result}
           loading={loading}
           onClose={() => {
-            if (!loading && !verifying) {
+            if (!loading && !revising && !verifying) {
               setPanelEndpoint("");
               setResult("");
               setVerifyResult("");
@@ -385,6 +437,9 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             });
           }}
           copied={copied}
+          onRegenerate={() => runGenerate(panelEndpoint, panelApp)}
+          onRevise={runRevise}
+          revising={revising}
           onVerify={() => runVerify(result)}
           verifying={verifying}
           verifyResult={verifyResult}
