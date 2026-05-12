@@ -23,11 +23,13 @@ const FEATURE_CONFIG: Record<
 
 export default function Dashboard({ profile, onReset }: Props) {
   const { basicInfo, experienceRaw, goals, jobPosting } = profile;
-
   const hasPosting = jobPosting.url || jobPosting.text;
 
   const [apiKey, setApiKey] = useState(
     () => (typeof window !== "undefined" ? localStorage.getItem("anthropic-api-key") ?? "" : "")
+  );
+  const [geminiKey, setGeminiKey] = useState(
+    () => (typeof window !== "undefined" ? localStorage.getItem("gemini-api-key") ?? "" : "")
   );
   const [showKeyInput, setShowKeyInput] = useState(false);
 
@@ -36,15 +38,24 @@ export default function Dashboard({ profile, onReset }: Props) {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const [verifyResult, setVerifyResult] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
   function saveApiKey(key: string) {
     setApiKey(key);
     localStorage.setItem("anthropic-api-key", key);
+  }
+
+  function saveGeminiKey(key: string) {
+    setGeminiKey(key);
+    localStorage.setItem("gemini-api-key", key);
   }
 
   const runFeature = useCallback(
     async (feature: FeatureKey) => {
       setActiveFeature(feature);
       setResult("");
+      setVerifyResult("");
       setCopied(false);
       setLoading(true);
 
@@ -78,6 +89,49 @@ export default function Dashboard({ profile, onReset }: Props) {
       }
     },
     [profile, apiKey]
+  );
+
+  const runVerify = useCallback(
+    async (claudeOutput: string) => {
+      if (!activeFeature) return;
+      setVerifyResult("");
+      setVerifying(true);
+
+      try {
+        const res = await fetch("/api/verify-with-gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile,
+            claudeOutput,
+            feature: activeFeature,
+            geminiApiKey: geminiKey || undefined,
+          }),
+        });
+
+        if (!res.ok || !res.body) {
+          setVerifyResult("[오류] Gemini 요청에 실패했습니다.");
+          setVerifying(false);
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          setVerifyResult(accumulated);
+        }
+      } catch {
+        setVerifyResult("[오류] 네트워크 오류가 발생했습니다.");
+      } finally {
+        setVerifying(false);
+      }
+    },
+    [profile, geminiKey, activeFeature]
   );
 
   function handleCopy() {
@@ -160,37 +214,54 @@ export default function Dashboard({ profile, onReset }: Props) {
         </div>
 
         {/* API 키 설정 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-base">🔑</span>
-              <span className="text-sm font-semibold text-gray-700">Anthropic API 키</span>
-              {apiKey && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                  설정됨
-                </span>
-              )}
+              <span className="text-sm font-semibold text-gray-700">API 키 설정</span>
             </div>
             <button
               type="button"
               onClick={() => setShowKeyInput((v) => !v)}
               className="text-xs text-blue-600 hover:underline"
             >
-              {showKeyInput ? "닫기" : apiKey ? "변경" : "입력"}
+              {showKeyInput ? "닫기" : "설정"}
             </button>
           </div>
+
+          <div className="flex gap-4 text-xs text-gray-500">
+            <span className={`flex items-center gap-1 ${apiKey ? "text-green-600" : "text-gray-400"}`}>
+              {apiKey ? "✓" : "○"} Claude (Anthropic)
+            </span>
+            <span className={`flex items-center gap-1 ${geminiKey ? "text-green-600" : "text-gray-400"}`}>
+              {geminiKey ? "✓" : "○"} Gemini (Google)
+            </span>
+          </div>
+
           {showKeyInput && (
-            <div className="mt-3 space-y-2">
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => saveApiKey(e.target.value)}
-                placeholder="sk-ant-..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-              />
+            <div className="space-y-3 pt-1">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Anthropic API 키</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => saveApiKey(e.target.value)}
+                  placeholder="sk-ant-..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Gemini API 키 (교차검증용)</label>
+                <input
+                  type="password"
+                  value={geminiKey}
+                  onChange={(e) => saveGeminiKey(e.target.value)}
+                  placeholder="AIza..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                />
+              </div>
               <p className="text-xs text-gray-400">
-                키는 브라우저 로컬스토리지에만 저장되며 서버로 전송됩니다.
-                서버에 ANTHROPIC_API_KEY 환경변수가 설정된 경우 생략 가능합니다.
+                키는 브라우저 로컬스토리지에만 저장됩니다. 서버 환경변수(ANTHROPIC_API_KEY, GEMINI_API_KEY)가 있으면 생략 가능합니다.
               </p>
             </div>
           )}
@@ -242,10 +313,14 @@ export default function Dashboard({ profile, onReset }: Props) {
           content={result}
           loading={loading}
           onClose={() => {
-            if (!loading) setActiveFeature(null);
+            if (!loading && !verifying) setActiveFeature(null);
           }}
           onCopy={handleCopy}
           copied={copied}
+          onVerify={() => runVerify(result)}
+          verifying={verifying}
+          verifyResult={verifyResult}
+          canVerify={!!(geminiKey || process.env.NEXT_PUBLIC_HAS_GEMINI_KEY)}
         />
       )}
     </div>

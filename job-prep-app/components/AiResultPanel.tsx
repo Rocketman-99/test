@@ -10,6 +10,10 @@ interface Props {
   onClose: () => void;
   onCopy: () => void;
   copied: boolean;
+  onVerify: () => void;
+  verifying: boolean;
+  verifyResult: string;
+  canVerify: boolean;
 }
 
 function toFilename(title: string) {
@@ -29,8 +33,18 @@ export default function AiResultPanel({
   onClose,
   onCopy,
   copied,
+  onVerify,
+  verifying,
+  verifyResult,
+  canVerify,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (loading || verifying) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [content, verifyResult, loading, verifying]);
 
   function handleDownload() {
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
@@ -42,11 +56,7 @@ export default function AiResultPanel({
     URL.revokeObjectURL(url);
   }
 
-  useEffect(() => {
-    if (loading) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [content, loading]);
+  const done = !loading && !!content;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -55,7 +65,7 @@ export default function AiResultPanel({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-800 text-lg">{title}</h2>
           <div className="flex items-center gap-2">
-            {content && !loading && (
+            {done && (
               <>
                 <button
                   type="button"
@@ -84,7 +94,8 @@ export default function AiResultPanel({
         </div>
 
         {/* 본문 */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          {/* Claude 결과 */}
           {!content && loading && (
             <div className="flex items-center gap-3 text-gray-400 py-8 justify-center">
               <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -96,10 +107,49 @@ export default function AiResultPanel({
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
           )}
+
+          {/* Gemini 교차검증 섹션 */}
+          {done && (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🔍</span>
+                  <span className="text-sm font-semibold text-gray-700">Gemini 교차검증</span>
+                </div>
+                {!verifyResult && !verifying && (
+                  <button
+                    type="button"
+                    onClick={onVerify}
+                    disabled={!canVerify}
+                    className="text-sm px-4 py-1.5 bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Gemini로 검증하기
+                  </button>
+                )}
+                {!canVerify && !verifyResult && !verifying && (
+                  <span className="text-xs text-amber-500 ml-2">Gemini API 키 필요</span>
+                )}
+              </div>
+
+              {verifying && !verifyResult && (
+                <div className="flex items-center gap-3 text-gray-400 py-4 justify-center">
+                  <span className="inline-block w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                  Gemini가 검토 중입니다…
+                </div>
+              )}
+
+              {verifyResult && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4 prose prose-sm prose-gray max-w-none">
+                  <ReactMarkdown>{verifyResult}</ReactMarkdown>
+                </div>
+              )}
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
 
-        {loading && content && (
+        {(loading || verifying) && (content || verifyResult) && (
           <div className="px-6 py-2 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-400">
             <span className="inline-block w-3 h-3 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
             생성 중…
