@@ -34,8 +34,8 @@ export default function Step2Experience({ initialData, onNext, onBack, submitLab
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-1">경험 작성</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-xl font-bold text-gray-900 mb-1">경험 작성</h2>
+        <p className="text-sm text-gray-600">
           인턴, 프로젝트, 대외활동, 수상 등 모든 경험을 자유롭게 적어주세요.
           <br />
           AI가 이력서에 맞게 정리해드릴게요.
@@ -52,7 +52,7 @@ export default function Step2Experience({ initialData, onNext, onBack, submitLab
       </div>
 
       <div className="space-y-1">
-        <label className="text-sm font-medium text-gray-700">
+        <label className="text-sm font-medium text-gray-900">
           나의 경험 <span className="text-red-500">*</span>
         </label>
         <textarea
@@ -63,7 +63,7 @@ export default function Step2Experience({ initialData, onNext, onBack, submitLab
           }}
           placeholder={PLACEHOLDER}
           rows={14}
-          className={`w-full px-4 py-3 border rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 transition-colors resize-none
+          className={`w-full px-4 py-3 border rounded-lg text-sm text-gray-900 placeholder-gray-400 leading-relaxed focus:outline-none focus:ring-2 transition-colors resize-none
             ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
         />
         <div className="flex justify-between items-center">
@@ -72,7 +72,7 @@ export default function Step2Experience({ initialData, onNext, onBack, submitLab
           ) : (
             <span />
           )}
-          <p className="text-xs text-gray-400">{text.length}자</p>
+          <p className="text-xs text-gray-500">{text.length}자</p>
         </div>
       </div>
 

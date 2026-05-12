@@ -77,13 +77,13 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-1">기본 정보</h2>
-        <p className="text-sm text-gray-500">이력서에 들어갈 기본 정보를 입력해주세요.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">기본 정보</h2>
+        <p className="text-sm text-gray-600">이력서에 들어갈 기본 정보를 입력해주세요.</p>
       </div>
 
       {/* 개인 정보 */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide border-b pb-1">개인 정보</h3>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b pb-1">개인 정보</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="이름" required error={errors.name}>
             <input
@@ -117,7 +117,7 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
 
       {/* 학력 */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide border-b pb-1">학력</h3>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b pb-1">학력</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="학교명" required error={errors.school}>
             <input
@@ -172,7 +172,7 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
       {/* 어학 성적 */}
       <section className="space-y-3">
         <div className="flex items-center justify-between border-b pb-1">
-          <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">어학 성적</h3>
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">어학 성적</h3>
           <button
             type="button"
             onClick={addLanguageScore}
@@ -182,7 +182,7 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
           </button>
         </div>
         {form.languageScores.length === 0 && (
-          <p className="text-sm text-gray-400 py-2">어학 성적이 없으면 건너뛰어도 됩니다.</p>
+          <p className="text-sm text-gray-500 py-2">어학 성적이 없으면 건너뛰어도 됩니다.</p>
         )}
         {form.languageScores.map((ls, idx) => (
           <div key={idx} className="flex gap-2 items-center">
@@ -213,7 +213,7 @@ export default function Step1BasicInfo({ initialData, onNext, submitLabel = "다
 
       {/* 자격증 */}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide border-b pb-1">자격증</h3>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b pb-1">자격증</h3>
         <div className="flex gap-2">
           <input
             type="text"
@@ -276,7 +276,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">
+      <label className="text-sm font-medium text-gray-900">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -287,6 +287,6 @@ function Field({
 }
 
 function inputCls(hasError: boolean) {
-  return `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors
+  return `w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors
     ${hasError ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`;
 }

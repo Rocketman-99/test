@@ -50,13 +50,13 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-1">목표 설정</h2>
-        <p className="text-sm text-gray-500">취업 목표를 알려주시면 맞춤형으로 도와드릴게요.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">목표 설정</h2>
+        <p className="text-sm text-gray-600">취업 목표를 알려주시면 맞춤형으로 도와드릴게요.</p>
       </div>
 
       {/* 희망 직무 */}
       <section className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
+        <label className="text-sm font-medium text-gray-900">
           희망 직무 <span className="text-red-500">*</span>
         </label>
         <div className="flex flex-wrap gap-2">
@@ -71,7 +71,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
               className={`px-3 py-1.5 rounded-full text-sm border transition-colors
                 ${form.targetRole === role
                   ? "bg-blue-600 border-blue-600 text-white"
-                  : "bg-white border-gray-300 text-gray-600 hover:border-blue-400"
+                  : "bg-white border-gray-300 text-gray-800 hover:border-blue-400"
                 }`}
             >
               {role}
@@ -83,7 +83,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
 
       {/* 희망 업종 */}
       <section className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
+        <label className="text-sm font-medium text-gray-900">
           희망 업종 <span className="text-red-500">*</span>
         </label>
         <div className="flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
               className={`px-3 py-1.5 rounded-full text-sm border transition-colors
                 ${form.targetIndustry === ind
                   ? "bg-blue-600 border-blue-600 text-white"
-                  : "bg-white border-gray-300 text-gray-600 hover:border-blue-400"
+                  : "bg-white border-gray-300 text-gray-800 hover:border-blue-400"
                 }`}
             >
               {ind}
@@ -110,7 +110,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
 
       {/* 희망 기업 규모 */}
       <section className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">희망 기업 규모</label>
+        <label className="text-sm font-medium text-gray-900">희망 기업 규모</label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
             { value: "large", label: "대기업" },
@@ -125,7 +125,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
               className={`py-2.5 rounded-lg text-sm border transition-colors font-medium
                 ${form.companySize === value
                   ? "bg-blue-50 border-blue-500 text-blue-700"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
+                  : "bg-white border-gray-200 text-gray-800 hover:border-gray-400"
                 }`}
             >
               {label}
@@ -136,7 +136,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
 
       {/* 준비 단계 */}
       <section className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">현재 준비 단계</label>
+        <label className="text-sm font-medium text-gray-900">현재 준비 단계</label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {([
             { value: "resume", label: "서류 준비 중", desc: "이력서·자소서 작성 집중" },
@@ -153,10 +153,10 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
                   : "bg-white border-gray-200 hover:border-gray-400"
                 }`}
             >
-              <p className={`text-sm font-medium ${form.preparationStage === value ? "text-blue-700" : "text-gray-700"}`}>
+              <p className={`text-sm font-medium ${form.preparationStage === value ? "text-blue-700" : "text-gray-800"}`}>
                 {label}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
             </button>
           ))}
         </div>
@@ -164,7 +164,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
 
       {/* 취약한 부분 */}
       <section className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
+        <label className="text-sm font-medium text-gray-900">
           도움이 필요한 부분 <span className="text-gray-400 font-normal">(복수 선택 가능)</span>
         </label>
         <div className="flex flex-wrap gap-2">
@@ -176,7 +176,7 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
               className={`px-3 py-1.5 rounded-full text-sm border transition-colors
                 ${form.weakPoints.includes(point)
                   ? "bg-indigo-600 border-indigo-600 text-white"
-                  : "bg-white border-gray-300 text-gray-600 hover:border-indigo-400"
+                  : "bg-white border-gray-300 text-gray-800 hover:border-indigo-400"
                 }`}
             >
               {point}

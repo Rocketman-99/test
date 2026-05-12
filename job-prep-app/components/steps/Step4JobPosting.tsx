@@ -31,14 +31,14 @@ export default function Step4JobPosting({ initialData, onSubmit, onBack }: Props
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-1">채용 공고 입력</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-xl font-bold text-gray-900 mb-1">채용 공고 입력</h2>
+        <p className="text-sm text-gray-600">
           지원할 공고를 입력하면 AI가 해당 공고에 최적화된 이력서와 자소서를 만들어드려요.
         </p>
       </div>
 
       {/* 건너뛰기 안내 */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-500">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-600">
         공고가 아직 없으면 건너뛰어도 됩니다. 나중에 마이페이지에서 추가할 수 있어요.
       </div>
 
@@ -50,7 +50,7 @@ export default function Step4JobPosting({ initialData, onSubmit, onBack }: Props
             type="button"
             onClick={() => { setInputMode(mode); setError(""); }}
             className={`pb-2 text-sm font-medium border-b-2 transition-colors -mb-px
-              ${inputMode === mode ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+              ${inputMode === mode ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}
           >
             {mode === "url" ? "URL 입력" : "공고 내용 붙여넣기"}
           </button>
@@ -59,32 +59,32 @@ export default function Step4JobPosting({ initialData, onSubmit, onBack }: Props
 
       {inputMode === "url" ? (
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">채용 공고 URL</label>
+          <label className="text-sm font-medium text-gray-900">채용 공고 URL</label>
           <input
             type="url"
             value={url}
             onChange={(e) => { setUrl(e.target.value); setError(""); }}
             placeholder="https://www.wanted.co.kr/wd/..."
-            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors
+            className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors
               ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
           />
-          <p className="text-xs text-gray-400">원티드, 사람인, 잡코리아, 링크드인 등 URL을 붙여넣으세요.</p>
+          <p className="text-xs text-gray-500">원티드, 사람인, 잡코리아, 링크드인 등 URL을 붙여넣으세요.</p>
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
       ) : (
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">공고 내용</label>
+          <label className="text-sm font-medium text-gray-900">공고 내용</label>
           <textarea
             value={text}
             onChange={(e) => { setText(e.target.value); setError(""); }}
             placeholder="채용 공고 내용을 복사해서 붙여넣으세요. (자격요건, 우대사항, 담당업무 등)"
             rows={10}
-            className={`w-full px-4 py-3 border rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 transition-colors resize-none
+            className={`w-full px-4 py-3 border rounded-lg text-sm text-gray-900 placeholder-gray-400 leading-relaxed focus:outline-none focus:ring-2 transition-colors resize-none
               ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
           />
           <div className="flex justify-between">
             {error ? <p className="text-xs text-red-500">{error}</p> : <span />}
-            <p className="text-xs text-gray-400">{text.length}자</p>
+            <p className="text-xs text-gray-500">{text.length}자</p>
           </div>
         </div>
       )}
