@@ -9,15 +9,16 @@ interface Props {
   onReset: () => void;
 }
 
-type FeatureKey = "resume" | "cover-letter" | "interview";
+type FeatureKey = "organize" | "resume" | "cover-letter" | "interview";
 
 const FEATURE_CONFIG: Record<
   FeatureKey,
-  { icon: string; label: string; endpoint: string }
+  { icon: string; label: string; endpoint: string; description: string }
 > = {
-  resume: { icon: "📝", label: "이력서 자동 생성", endpoint: "/api/generate-resume" },
-  "cover-letter": { icon: "✍️", label: "자소서 작성", endpoint: "/api/generate-cover-letter" },
-  interview: { icon: "🎤", label: "면접 질문 생성", endpoint: "/api/interview-questions" },
+  organize: { icon: "🗂️", label: "경험 자동 정리", endpoint: "/api/organize-experience", description: "자유 입력 → 이력서 항목" },
+  resume: { icon: "📝", label: "이력서 자동 생성", endpoint: "/api/generate-resume", description: "공고 맞춤 이력서" },
+  "cover-letter": { icon: "✍️", label: "자소서 작성", endpoint: "/api/generate-cover-letter", description: "공고 최적화 자소서" },
+  interview: { icon: "🎤", label: "면접 질문 생성", endpoint: "/api/interview-questions", description: "예상 질문 + 답변 가이드" },
 };
 
 export default function Dashboard({ profile, onReset }: Props) {
@@ -198,7 +199,7 @@ export default function Dashboard({ profile, onReset }: Props) {
         {/* AI 기능 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3">
           <h2 className="font-bold text-gray-800">AI 기능</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(Object.entries(FEATURE_CONFIG) as [FeatureKey, (typeof FEATURE_CONFIG)[FeatureKey]][]).map(
               ([key, item]) => (
                 <button
@@ -206,12 +207,12 @@ export default function Dashboard({ profile, onReset }: Props) {
                   type="button"
                   onClick={() => runFeature(key)}
                   disabled={loading && activeFeature === key}
-                  className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-left rounded-xl border border-blue-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex flex-col items-start gap-1.5 p-3 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-left rounded-xl border border-blue-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className="text-xl">{item.icon}</span>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">{item.label}</p>
-                    <p className="text-xs text-blue-500">AI로 생성하기</p>
+                    <p className="text-sm font-medium text-gray-700 leading-tight">{item.label}</p>
+                    <p className="text-xs text-blue-500 mt-0.5">{item.description}</p>
                   </div>
                 </button>
               )
