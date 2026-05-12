@@ -16,15 +16,37 @@ export function loadSpec(): Partial<UserSpec> {
   if (typeof window === "undefined") return {};
   const raw = localStorage.getItem(SPEC_KEY);
   if (raw) {
-    try { return JSON.parse(raw); } catch { return {}; }
+    try {
+      const parsed = JSON.parse(raw);
+      // string → string[] 마이그레이션
+      if (parsed.goals) {
+        if (typeof parsed.goals.targetRole === "string") {
+          parsed.goals.targetRole = parsed.goals.targetRole ? [parsed.goals.targetRole] : [];
+        }
+        if (typeof parsed.goals.targetIndustry === "string") {
+          parsed.goals.targetIndustry = parsed.goals.targetIndustry ? [parsed.goals.targetIndustry] : [];
+        }
+      }
+      return parsed;
+    } catch { return {}; }
   }
   // migrate from legacy profile
   const legacy = loadLegacyProfile();
   if (legacy.basicInfo) {
+    const goals = legacy.goals;
+    if (goals) {
+      const g = goals as unknown as Record<string, unknown>;
+      if (typeof g.targetRole === "string") {
+        g.targetRole = g.targetRole ? [g.targetRole] : [];
+      }
+      if (typeof g.targetIndustry === "string") {
+        g.targetIndustry = g.targetIndustry ? [g.targetIndustry] : [];
+      }
+    }
     const spec: Partial<UserSpec> = {
       basicInfo: legacy.basicInfo,
       experienceRaw: legacy.experienceRaw,
-      goals: legacy.goals,
+      goals: goals as UserSpec["goals"],
     };
     localStorage.setItem(SPEC_KEY, JSON.stringify(spec));
     return spec;
