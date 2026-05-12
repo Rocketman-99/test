@@ -193,8 +193,14 @@ export default function AiResultPanel({
                 </div>
               )}
               {verifyResult && (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4 prose prose-sm prose-gray max-w-none">
+                <div className={`border rounded-xl p-4 prose prose-sm prose-gray max-w-none ${verifyResult.includes("[오류]") ? "bg-red-50 border-red-100" : "bg-green-50 border-green-100"}`}>
                   <ReactMarkdown>{verifyResult}</ReactMarkdown>
+                  {verifyResult.includes("[오류]") && (
+                    <button type="button" onClick={onVerify} disabled={!canVerify || busy}
+                      className="mt-2 text-sm px-3 py-1 bg-white border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                      재시도
+                    </button>
+                  )}
                 </div>
               )}
             </div>

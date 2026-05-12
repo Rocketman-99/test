@@ -37,6 +37,9 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     () => (typeof window !== "undefined" ? localStorage.getItem("gemini-api-key") ?? "" : "")
   );
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [draftApiKey, setDraftApiKey] = useState(apiKey);
+  const [draftGeminiKey, setDraftGeminiKey] = useState(geminiKey);
+  const [keySaved, setKeySaved] = useState(false);
   const [showSpecEdit, setShowSpecEdit] = useState(false);
   const [addAppFor, setAddAppFor] = useState<Application | "new" | null>(null);
   const [interviewSetupFor, setInterviewSetupFor] = useState<Application | null>(null);
@@ -61,6 +64,13 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   function saveGeminiKey(key: string) {
     setGeminiKey(key);
     localStorage.setItem("gemini-api-key", key);
+  }
+
+  function handleSaveKeys() {
+    saveApiKey(draftApiKey);
+    saveGeminiKey(draftGeminiKey);
+    setKeySaved(true);
+    setTimeout(() => setKeySaved(false), 2000);
   }
 
   function handleDeleteApp(id: string) {
@@ -396,13 +406,23 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Anthropic API 키</label>
-                <input type="password" value={apiKey} onChange={(e) => saveApiKey(e.target.value)} placeholder="sk-ant-..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                <input type="password" value={draftApiKey} onChange={(e) => setDraftApiKey(e.target.value)} placeholder="sk-ant-..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Gemini API 키 (교차검증용)</label>
-                <input type="password" value={geminiKey} onChange={(e) => saveGeminiKey(e.target.value)} placeholder="AIza..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                <input type="password" value={draftGeminiKey} onChange={(e) => setDraftGeminiKey(e.target.value)} placeholder="AIza..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveKeys}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  저장
+                </button>
+                {keySaved && <span className="text-sm text-green-600 font-medium">✓ 저장됨</span>}
               </div>
               <p className="text-xs text-gray-400">키는 브라우저 로컬스토리지에만 저장됩니다. 서버 환경변수(ANTHROPIC_API_KEY, GEMINI_API_KEY)가 있으면 생략 가능합니다.</p>
             </div>
