@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 export interface InterviewSettings {
   difficulty: "normal" | "pressure";
   totalQuestions: number;
-  interviewType: "personal" | "job" | "mixed";
+  interviewType: "job_round" | "executive_round";
   questionNumber: number;
   isLastQuestion: boolean;
 }
@@ -17,9 +17,12 @@ const DIFFICULTY_GUIDE: Record<string, string> = {
 };
 
 const TYPE_GUIDE: Record<string, string> = {
-  personal: "인성 면접 위주로 진행하되, 아래 질문 출처 비중을 따르세요: 자기소개서 기반 60% / 기업·산업 기반 40%.",
-  job: "직무 역량 면접 위주로 진행하되, 아래 질문 출처 비중을 따르세요: 직무 기반 60% / 자기소개서 기반 40%.",
-  mixed: "아래 질문 출처 세 가지를 균형 있게 섞어서 진행하세요: 자기소개서 기반 / 직무 기반 / 기업·산업 기반 각 약 33%.",
+  job_round: `[1차 직무면접] 직무 역량과 실무 적합성 검증에 집중하세요.
+질문 출처 비중: 직무 기술 50% / 자기소개서 기반(직무 관련 경험) 35% / 기업·산업 기반 15%.
+BEI(행동사건면접)와 SI(상황면접) 위주로, 실제 업무 상황에서의 판단력·문제해결력을 파악하세요.`,
+  executive_round: `[2차 임원면접] 인성·가치관·조직 적합성 검증에 집중하세요.
+질문 출처 비중: 인성·가치관 45% / 자기소개서 기반(성장·동기) 35% / 기업·산업 기반(입사 의지·비전) 20%.
+깊이 있는 가치관 질문, 리더십·협업 경험, 회사에 대한 이해와 입사 의지를 중점적으로 탐색하세요.`,
 };
 
 export async function POST(request: Request) {
@@ -42,9 +45,11 @@ export async function POST(request: Request) {
   const profileContext = buildProfileContext(profile);
   const { difficulty, totalQuestions, interviewType, questionNumber, isLastQuestion } = settings;
 
+  const roundLabel = interviewType === "job_round" ? "1차 직무면접" : "2차 임원면접";
+
   const progressNote =
     questionNumber === 0
-      ? "지금은 면접 시작 단계입니다. 간단히 자기소개 후 첫 번째 질문을 해주세요."
+      ? `지금은 ${roundLabel} 시작 단계입니다. 간단히 자기소개를 요청한 후 첫 번째 질문을 해주세요.`
       : isLastQuestion
         ? `지금은 마지막(${questionNumber}번째) 질문입니다. 답변에 피드백 후 종합 평가를 제공하고 면접을 마무리해주세요.`
         : `지금은 ${questionNumber}번째 답변에 대한 피드백 후 ${questionNumber + 1}번째 질문을 해주세요.`;
@@ -53,33 +58,16 @@ export async function POST(request: Request) {
     ? `\n[사전 준비된 질문 뱅크]\n아래 질문 뱅크를 면접 진행의 주요 재료로 활용하세요. 순서에 얽매이지 말고 대화 흐름에 맞게 자연스럽게 선택·변형해서 사용하세요.\n${questionBank}\n`
     : "";
 
-  const systemPrompt = `당신은 전문 채용 면접관입니다. 아래 지원자의 정보를 숙지하고 실제 면접처럼 진행해주세요.
+  const systemPrompt = `당신은 ${roundLabel} 전문 면접관입니다. 아래 지원자의 정보를 숙지하고 실제 면접처럼 진행해주세요.
 
 [지원자 프로필]
 ${profileContext}
 ${questionBankSection}
 
 [면접 설정]
+- 면접 유형: ${roundLabel}
 - 총 질문 수: ${totalQuestions}개
 - 난이도: ${difficulty === "normal" ? "일반" : "압박"} 면접
-- 유형: ${interviewType === "personal" ? "인성" : interviewType === "job" ? "직무" : "혼합"}
-
-[질문 출처 — 반드시 세 가지를 자연스럽게 혼합할 것]
-
-1. 자기소개서 기반 질문
-   - 지원자가 작성한 경험(경력·프로젝트·활동) 내용을 직접 언급하며 질문
-   - 예: "○○ 프로젝트에서 팀장을 맡으셨는데, 갈등 상황은 어떻게 해결하셨나요?"
-   - 경험의 구체성·진위·깊이를 파고드는 꼬리 질문 활용
-
-2. 직무 기반 질문
-   - 지원자의 희망 직무(${profile.goals.targetRole})에 필요한 역량과 지식을 검증
-   - 직무 상황 가정("만약 ~한 상황이라면?"), 기술 이해도, 우선순위 판단력 등을 확인
-   - 예: "${profile.goals.targetRole} 업무에서 가장 중요한 역량이 무엇이라고 생각하시나요?"
-
-3. 기업·산업 기반 질문
-   - 채용 공고에 명시된 요구사항·우대사항을 토대로 질문
-   - ${profile.goals.targetIndustry} 업종의 최근 트렌드, 해당 기업의 인재상·사업 방향에 맞는 질문
-   - 예: "저희 회사 지원 동기와 함께, ${profile.goals.targetIndustry} 업계에서 현재 가장 중요한 변화가 무엇이라고 생각하시나요?"
 
 [진행 지침]
 ${DIFFICULTY_GUIDE[difficulty]}

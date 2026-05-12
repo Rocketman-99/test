@@ -12,7 +12,7 @@ interface Props {
 export default function InterviewSetupModal({ applicationLabel, onStart, onClose }: Props) {
   const [difficulty, setDifficulty] = useState<"normal" | "pressure">("normal");
   const [totalQuestions, setTotalQuestions] = useState(5);
-  const [interviewType, setInterviewType] = useState<"personal" | "job" | "mixed">("mixed");
+  const [interviewType, setInterviewType] = useState<"job_round" | "executive_round">("job_round");
 
   function handleStart() {
     onStart({ difficulty, totalQuestions, interviewType, questionNumber: 0, isLastQuestion: false });
@@ -33,18 +33,31 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
           {/* 면접 유형 */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700">면접 유형</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {([
-                { value: "personal", label: "인성", desc: "가치관·경험 중심" },
-                { value: "job", label: "직무", desc: "기술·역량 중심" },
-                { value: "mixed", label: "혼합", desc: "인성 + 직무" },
-              ] as const).map(({ value, label, desc }) => (
+                {
+                  value: "job_round",
+                  label: "1차 직무면접",
+                  emoji: "💼",
+                  desc: "직무 역량·기술·실무 경험 검증",
+                  detail: "BEI·상황면접 중심",
+                },
+                {
+                  value: "executive_round",
+                  label: "2차 임원면접",
+                  emoji: "🏢",
+                  desc: "인성·가치관·조직 적합성 검증",
+                  detail: "리더십·성장·입사 의지 중심",
+                },
+              ] as const).map(({ value, label, emoji, desc, detail }) => (
                 <button key={value} type="button"
                   onClick={() => setInterviewType(value)}
                   className={`p-3 rounded-xl border text-left transition-colors
                     ${interviewType === value ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
-                  <p className={`text-sm font-medium ${interviewType === value ? "text-blue-700" : "text-gray-700"}`}>{label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  <p className="text-xl mb-1">{emoji}</p>
+                  <p className={`text-sm font-semibold ${interviewType === value ? "text-blue-700" : "text-gray-700"}`}>{label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                  <p className={`text-xs mt-0.5 ${interviewType === value ? "text-blue-400" : "text-gray-400"}`}>{detail}</p>
                 </button>
               ))}
             </div>

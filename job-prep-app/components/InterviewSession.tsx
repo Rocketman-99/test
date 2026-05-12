@@ -217,7 +217,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
   }
 
   const difficultyLabel = settings.difficulty === "normal" ? "일반" : "압박";
-  const typeLabel = settings.interviewType === "personal" ? "인성" : settings.interviewType === "job" ? "직무" : "혼합";
+  const typeLabel = settings.interviewType === "job_round" ? "1차 직무" : "2차 임원";
   const progress = Math.min(questionNumber, settings.totalQuestions);
 
   // ── 준비 화면 ─────────────────────────────────────────
