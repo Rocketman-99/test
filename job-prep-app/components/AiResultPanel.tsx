@@ -12,6 +12,16 @@ interface Props {
   copied: boolean;
 }
 
+function toFilename(title: string) {
+  const map: Record<string, string> = {
+    "경험 자동 정리": "경험정리",
+    "이력서 자동 생성": "이력서",
+    "자소서 작성": "자기소개서",
+    "면접 질문 생성": "면접질문",
+  };
+  return `취준도우미_${map[title] ?? title}_${new Date().toISOString().slice(0, 10)}.md`;
+}
+
 export default function AiResultPanel({
   title,
   content,
@@ -21,6 +31,16 @@ export default function AiResultPanel({
   copied,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  function handleDownload() {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = toFilename(title);
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   useEffect(() => {
     if (loading) {
@@ -35,14 +55,23 @@ export default function AiResultPanel({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-800 text-lg">{title}</h2>
           <div className="flex items-center gap-2">
-            {content && (
-              <button
-                type="button"
-                onClick={onCopy}
-                className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
-              >
-                {copied ? "복사됨 ✓" : "복사"}
-              </button>
+            {content && !loading && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+                >
+                  다운로드 ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={onCopy}
+                  className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+                >
+                  {copied ? "복사됨 ✓" : "복사"}
+                </button>
+              </>
             )}
             <button
               type="button"
