@@ -124,18 +124,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const openFeature = useCallback(
     (featureKey: DocFeature | "organize", title: string, endpoint: string, app: Application | null) => {
       const items = loadHistory(featureKey, app?.id ?? null);
-      if (items.length === 0) {
-        // 히스토리 없으면 바로 생성 시작
-        setPanelTitle(title);
-        setPanelEndpoint(endpoint);
-        setPanelApp(app);
-        setActiveFeatureKey(featureKey);
-        setResult("");
-        setVerifyResult("");
-        setCopied(false);
-      } else {
-        setHistoryView({ featureKey, title, endpoint, app, items });
-      }
+      setHistoryView({ featureKey, title, endpoint, app, items });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -367,7 +356,6 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             type="button"
             onClick={() => {
               openFeature("organize", "경험 자동 정리", "/api/organize-experience", null);
-              runGenerate("/api/organize-experience", null);
             }}
             className="mt-3 w-full flex items-center justify-center gap-2 py-2 text-sm text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors font-medium"
           >
@@ -436,7 +424,6 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                           type="button"
                           onClick={() => {
                             openFeature(key, `${feat.label} — ${app.label}`, feat.endpoint, app);
-                            runGenerate(feat.endpoint, app);
                           }}
                           className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg transition-colors"
                         >
@@ -563,7 +550,15 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
               <button type="button" onClick={() => setHistoryView(null)} className="text-gray-400 hover:text-gray-600 text-xl px-1">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-              <p className="text-xs text-gray-500">이전에 생성한 결과를 선택하거나 새로 생성하세요.</p>
+              {historyView.items.length === 0 ? (
+                <div className="py-10 text-center text-gray-400 space-y-2">
+                  <p className="text-2xl">📭</p>
+                  <p className="text-sm">아직 생성한 결과가 없습니다.</p>
+                  <p className="text-xs">아래 버튼을 눌러 첫 번째 결과를 생성해보세요.</p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">이전에 생성한 결과를 선택하거나 새로 생성하세요.</p>
+              )}
               {historyView.items.map((item, idx) => (
                 <button
                   key={item.id}
@@ -579,6 +574,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                 </button>
               ))}
             </div>
+
             <div className="px-6 py-4 border-t border-gray-100">
               <button
                 type="button"
