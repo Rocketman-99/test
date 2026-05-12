@@ -149,7 +149,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   }
 
   const runGenerate = useCallback(
-    async (endpoint: string, app: Application | null) => {
+    async (endpoint: string, app: Application | null, featureKey?: string) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -185,7 +185,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           accumulated += decoder.decode(value, { stream: true });
           setResult(accumulated);
         }
-        saveToHistory(activeFeatureKey ?? "", app?.id ?? null, accumulated);
+        saveToHistory(featureKey ?? activeFeatureKey ?? "", app?.id ?? null, accumulated);
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           setResult("[오류] 네트워크 오류가 발생했습니다.");
@@ -194,7 +194,6 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         setLoading(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [spec, apiKey, activeFeatureKey]
   );
 
@@ -580,7 +579,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                 type="button"
                 onClick={() => {
                   openPanel(historyView.featureKey, historyView.title, historyView.endpoint, historyView.app);
-                  runGenerate(historyView.endpoint, historyView.app);
+                  runGenerate(historyView.endpoint, historyView.app, historyView.featureKey);
                 }}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
               >
@@ -610,7 +609,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             });
           }}
           copied={copied}
-          onRegenerate={() => runGenerate(panelEndpoint, panelApp)}
+          onRegenerate={() => runGenerate(panelEndpoint, panelApp, activeFeatureKey ?? undefined)}
           onRevise={runRevise}
           revising={revising}
           onVerify={() => runVerify(result)}
