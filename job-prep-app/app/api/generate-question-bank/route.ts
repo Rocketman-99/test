@@ -52,7 +52,7 @@ BEI(행동사건면접)와 SI(상황면접) 중심으로, 지원자가 직무 �
 - 꼬리: [예상 답변에 따른 후속 질문 1~2개]
 
 ## 💼 직무 기술 질문
-희망 직무(${profile.goals.targetRole}) 특화 역량·기술 검증 질문
+희망 직무(${Array.isArray(profile.goals.targetRole) ? profile.goals.targetRole.join(", ") : profile.goals.targetRole}) 특화 역량·기술 검증 질문
 (위와 동일한 형식)
 
 ## 🏢 기업·산업 기반 질문

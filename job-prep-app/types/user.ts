@@ -22,8 +22,8 @@ export interface ExperienceRaw {
 }
 
 export interface Goals {
-  targetRole: string;
-  targetIndustry: string;
+  targetRole: string[];
+  targetIndustry: string[];
   companySize: "large" | "startup" | "public" | "any";
   preparationStage: "resume" | "interview" | "both";
   weakPoints: string[];

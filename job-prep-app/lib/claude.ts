@@ -62,8 +62,8 @@ export function buildProfileContext(profile: UserProfile): string {
 ${experienceRaw.text}
 
 [목표]
-희망 직무: ${goals.targetRole}
-희망 업종: ${goals.targetIndustry}
+희망 직무: ${Array.isArray(goals.targetRole) ? goals.targetRole.join(", ") : goals.targetRole}
+희망 업종: ${Array.isArray(goals.targetIndustry) ? goals.targetIndustry.join(", ") : goals.targetIndustry}
 기업 규모: ${companySizeMap[goals.companySize] ?? goals.companySize}
 준비 단계: ${stageMap[goals.preparationStage] ?? goals.preparationStage}
 집중 영역: ${weakPoints}

@@ -30,8 +30,8 @@ const INDUSTRIES = [
 const WEAK_POINTS = ["자소서 작성", "면접 답변", "직무 역량 정리", "스펙/포트폴리오", "취업 전략"];
 
 const EMPTY_GOALS: Goals = {
-  targetRole: "",
-  targetIndustry: "",
+  targetRole: [],
+  targetIndustry: [],
   companySize: "any",
   preparationStage: "both",
   weakPoints: [],
@@ -40,6 +40,26 @@ const EMPTY_GOALS: Goals = {
 export default function Step3Goals({ initialData, onNext, onBack, submitLabel = "다음 단계 →" }: Props) {
   const [form, setForm] = useState<Goals>({ ...EMPTY_GOALS, ...initialData });
   const [errors, setErrors] = useState<{ role?: string; industry?: string }>({});
+
+  function toggleRole(role: string) {
+    setForm((prev) => ({
+      ...prev,
+      targetRole: prev.targetRole.includes(role)
+        ? prev.targetRole.filter((r) => r !== role)
+        : [...prev.targetRole, role],
+    }));
+    setErrors((prev) => ({ ...prev, role: undefined }));
+  }
+
+  function toggleIndustry(ind: string) {
+    setForm((prev) => ({
+      ...prev,
+      targetIndustry: prev.targetIndustry.includes(ind)
+        ? prev.targetIndustry.filter((i) => i !== ind)
+        : [...prev.targetIndustry, ind],
+    }));
+    setErrors((prev) => ({ ...prev, industry: undefined }));
+  }
 
   function toggleWeakPoint(point: string) {
     setForm((prev) => ({
@@ -52,8 +72,8 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
 
   function validate() {
     const errs: { role?: string; industry?: string } = {};
-    if (!form.targetRole) errs.role = "희망 직무를 선택해주세요.";
-    if (!form.targetIndustry) errs.industry = "희망 업종을 선택해주세요.";
+    if (form.targetRole.length === 0) errs.role = "희망 직무를 하나 이상 선택해주세요.";
+    if (form.targetIndustry.length === 0) errs.industry = "희망 업종을 하나 이상 선택해주세요.";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -73,18 +93,16 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
       <section className="space-y-2">
         <label className="text-sm font-medium text-gray-900">
           희망 직무 <span className="text-red-500">*</span>
+          <span className="text-gray-500 font-normal ml-1">(복수 선택 가능)</span>
         </label>
         <div className="flex flex-wrap gap-2">
           {ROLES.map((role) => (
             <button
               key={role}
               type="button"
-              onClick={() => {
-                setForm((prev) => ({ ...prev, targetRole: role }));
-                setErrors((prev) => ({ ...prev, role: undefined }));
-              }}
+              onClick={() => toggleRole(role)}
               className={`px-3 py-1.5 rounded-full text-sm border transition-colors
-                ${form.targetRole === role
+                ${form.targetRole.includes(role)
                   ? "bg-blue-600 border-blue-600 text-white"
                   : "bg-white border-gray-300 text-gray-800 hover:border-blue-400"
                 }`}
@@ -100,18 +118,16 @@ export default function Step3Goals({ initialData, onNext, onBack, submitLabel = 
       <section className="space-y-2">
         <label className="text-sm font-medium text-gray-900">
           희망 업종 <span className="text-red-500">*</span>
+          <span className="text-gray-500 font-normal ml-1">(복수 선택 가능)</span>
         </label>
         <div className="flex flex-wrap gap-2">
           {INDUSTRIES.map((ind) => (
             <button
               key={ind}
               type="button"
-              onClick={() => {
-                setForm((prev) => ({ ...prev, targetIndustry: ind }));
-                setErrors((prev) => ({ ...prev, industry: undefined }));
-              }}
+              onClick={() => toggleIndustry(ind)}
               className={`px-3 py-1.5 rounded-full text-sm border transition-colors
-                ${form.targetIndustry === ind
+                ${form.targetIndustry.includes(ind)
                   ? "bg-blue-600 border-blue-600 text-white"
                   : "bg-white border-gray-300 text-gray-800 hover:border-blue-400"
                 }`}
