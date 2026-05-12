@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface Props {
   title: string;
@@ -62,9 +63,9 @@ export default function AiResultPanel({
             </div>
           )}
           {content && (
-            <pre className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed font-sans">
-              {content}
-            </pre>
+            <div className="prose prose-sm prose-gray max-w-none text-gray-700">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
           )}
           <div ref={bottomRef} />
         </div>
