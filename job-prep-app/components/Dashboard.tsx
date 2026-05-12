@@ -6,6 +6,9 @@ import { saveApplications } from "@/lib/store";
 import AiResultPanel from "./AiResultPanel";
 import SpecEditModal from "./SpecEditModal";
 import AddApplicationModal from "./AddApplicationModal";
+import InterviewSetupModal from "./InterviewSetupModal";
+import InterviewSession from "./InterviewSession";
+import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
   spec: UserSpec;
@@ -35,6 +38,8 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [showSpecEdit, setShowSpecEdit] = useState(false);
   const [addAppFor, setAddAppFor] = useState<Application | "new" | null>(null);
+  const [interviewSetupFor, setInterviewSetupFor] = useState<Application | null>(null);
+  const [interviewSession, setInterviewSession] = useState<{ app: Application | null; settings: InterviewSettings } | null>(null);
 
   // AI panel state
   const [panelTitle, setPanelTitle] = useState("");
@@ -341,7 +346,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                   </div>
 
                   {/* AI 기능 버튼 */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {(Object.entries(DOC_FEATURES) as [DocFeature, typeof DOC_FEATURES[DocFeature]][]).map(
                       ([key, feat]) => (
                         <button
@@ -357,6 +362,13 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                         </button>
                       )
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setInterviewSetupFor(app)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-lg transition-colors"
+                    >
+                      <span>🎤</span>모의 면접
+                    </button>
                   </div>
                 </div>
               ))}
@@ -402,6 +414,27 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           </button>
         </div>
       </div>
+
+      {/* 모의 면접 */}
+      {interviewSetupFor && (
+        <InterviewSetupModal
+          applicationLabel={interviewSetupFor.label}
+          onStart={(s) => {
+            setInterviewSession({ app: interviewSetupFor, settings: s });
+            setInterviewSetupFor(null);
+          }}
+          onClose={() => setInterviewSetupFor(null)}
+        />
+      )}
+      {interviewSession && (
+        <InterviewSession
+          spec={spec}
+          application={interviewSession.app}
+          settings={interviewSession.settings}
+          apiKey={apiKey}
+          onClose={() => setInterviewSession(null)}
+        />
+      )}
 
       {/* 모달들 */}
       {showSpecEdit && (
