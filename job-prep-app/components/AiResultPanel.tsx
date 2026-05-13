@@ -70,7 +70,7 @@ export default function AiResultPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-xl flex flex-col">
+      <div className="w-full max-w-3xl h-[90vh] bg-white rounded-2xl shadow-xl flex flex-col">
 
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 gap-2 flex-wrap">
