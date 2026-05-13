@@ -97,7 +97,7 @@ ${progressNote}
         const effectiveMessages: Anthropic.MessageParam[] = [starterMessage, ...messages];
 
         const stream = client.messages.stream({
-          model: "claude-opus-4-7",
+          model: "claude-sonnet-4-6",
           max_tokens: 1024,
           system: systemPrompt,
           messages: effectiveMessages,
