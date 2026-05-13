@@ -44,8 +44,8 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
             <h2 className="font-bold text-gray-800 text-lg">모의 면접 설정</h2>
             <p className="text-xs text-gray-400 mt-0.5">{applicationLabel}</p>
@@ -53,7 +53,7 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl px-1">✕</button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
           {/* 면접 방식 */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700">면접 방식</label>
@@ -187,7 +187,7 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
           <button type="button" onClick={onClose}
             className="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg text-sm font-medium transition-colors">
             취소
