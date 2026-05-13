@@ -69,6 +69,12 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   const [feedbackContent, setFeedbackContent] = useState("");
   const [feedbackVisible, setFeedbackVisible] = useState(false);
 
+  const [ttsRate, setTtsRate] = useState(0.85);
+  const [ttsPitch, setTtsPitch] = useState(0.72);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -80,10 +86,20 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   };
 
   useEffect(() => {
+    function loadVoices() {
+      const voices = window.speechSynthesis.getVoices().filter(
+        (v) => v.lang.startsWith("ko") || v.lang.startsWith("KO")
+      );
+      if (voices.length > 0) setAvailableVoices(voices);
+    }
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
     return () => {
       window.speechSynthesis?.cancel();
       mediaRecorderRef.current?.stop();
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Question bank generation
@@ -145,52 +161,17 @@ export default function VoiceInterviewSession({ spec, application, settings, api
     const clean = stripMarkdown(text);
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "ko-KR";
-    utterance.rate = 0.85;
-    utterance.pitch = 0.72;
+    utterance.rate = ttsRate;
+    utterance.pitch = ttsPitch;
 
-    function pickVoice(voices: SpeechSynthesisVoice[]) {
-      // 남성 음성 우선 탐색
-      const maleKo = voices.find((v) => v.lang.startsWith("ko") && /male|남성|man/i.test(v.name));
-      if (maleKo) return maleKo;
-      // Google 한국어는 여성이라 제외하고 다른 ko 음성 탐색
-      const nonGoogleKr = voices.find((v) => v.lang === "ko-KR" && !v.name.includes("Google"));
-      if (nonGoogleKr) return nonGoogleKr;
-      const exactKr = voices.find((v) => v.lang === "ko-KR");
-      if (exactKr) return exactKr;
-      return voices.find((v) => v.lang.startsWith("ko")) ?? null;
-    }
+    const allVoices = window.speechSynthesis.getVoices();
+    const koVoices = allVoices.filter((v) => v.lang.startsWith("ko") || v.lang.startsWith("KO"));
+    const chosen = koVoices.find((v) => v.name === selectedVoiceName) ?? koVoices[0] ?? null;
+    if (chosen) utterance.voice = chosen;
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      const v = pickVoice(voices);
-      if (v) utterance.voice = v;
-      utterance.onend = onEnd;
-      utterance.onerror = () => onEnd();
-      window.speechSynthesis.speak(utterance);
-    } else {
-      // Wait for voices to load with 500ms timeout fallback
-      let resolved = false;
-      const handler = () => {
-        if (resolved) return;
-        resolved = true;
-        window.speechSynthesis.removeEventListener("voiceschanged", handler);
-        const v = pickVoice(window.speechSynthesis.getVoices());
-        if (v) utterance.voice = v;
-        utterance.onend = onEnd;
-        utterance.onerror = () => onEnd();
-        window.speechSynthesis.speak(utterance);
-      };
-      window.speechSynthesis.addEventListener("voiceschanged", handler);
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          window.speechSynthesis.removeEventListener("voiceschanged", handler);
-          utterance.onend = onEnd;
-          utterance.onerror = () => onEnd();
-          window.speechSynthesis.speak(utterance);
-        }
-      }, 500);
-    }
+    utterance.onend = onEnd;
+    utterance.onerror = () => onEnd();
+    window.speechSynthesis.speak(utterance);
   }
 
   function skipTTS() {
@@ -494,27 +475,80 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-gray-950">
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
-        <div className="flex items-center gap-3">
-          <span className="text-white font-bold text-sm">🎙️ 음성 면접</span>
-          {application && <span className="text-gray-400 text-xs">{application.label}</span>}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">{typeLabel}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${settings.difficulty === "pressure" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>
-            {difficultyLabel}
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          {turnState !== "finished" && <span className="text-gray-400 text-xs">{progress} / {settings.totalQuestions}</span>}
-          {timerRunning && (
-            <span className={`font-mono text-sm font-bold ${elapsed > 120 ? "text-red-400" : elapsed > 90 ? "text-yellow-400" : "text-green-400"}`}>
-              {formatTime(elapsed)}
+      <div className="bg-gray-900 border-b border-gray-800">
+        <div className="flex items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-white font-bold text-sm">🎙️ 음성 면접</span>
+            {application && <span className="text-gray-400 text-xs">{application.label}</span>}
+            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">{typeLabel}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${settings.difficulty === "pressure" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>
+              {difficultyLabel}
             </span>
-          )}
-          <button type="button" onClick={onClose}
-            className="text-gray-400 hover:text-white text-sm px-3 py-1.5 border border-gray-700 rounded-lg transition-colors">
-            종료
-          </button>
+          </div>
+          <div className="flex items-center gap-3">
+            {turnState !== "finished" && <span className="text-gray-400 text-xs">{progress} / {settings.totalQuestions}</span>}
+            {timerRunning && (
+              <span className={`font-mono text-sm font-bold ${elapsed > 120 ? "text-red-400" : elapsed > 90 ? "text-yellow-400" : "text-green-400"}`}>
+                {formatTime(elapsed)}
+              </span>
+            )}
+            <button type="button" onClick={() => setShowVoiceSettings((v) => !v)}
+              className={`text-xs px-2 py-1.5 border rounded-lg transition-colors ${showVoiceSettings ? "border-blue-500 text-blue-400" : "border-gray-700 text-gray-400 hover:text-white"}`}>
+              🔊 음성 설정
+            </button>
+            <button type="button" onClick={onClose}
+              className="text-gray-400 hover:text-white text-sm px-3 py-1.5 border border-gray-700 rounded-lg transition-colors">
+              종료
+            </button>
+          </div>
         </div>
+
+        {/* 음성 설정 패널 */}
+        {showVoiceSettings && (
+          <div className="px-6 py-3 border-t border-gray-800 bg-gray-900/80 space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>속도</span>
+                  <span className="font-mono">{ttsRate.toFixed(2)}x</span>
+                </div>
+                <input type="range" min={0.5} max={1.5} step={0.05} value={ttsRate}
+                  onChange={(e) => setTtsRate(parseFloat(e.target.value))}
+                  className="w-full accent-blue-500 cursor-pointer" />
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>느림</span><span>보통</span><span>빠름</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>피치 (음높이)</span>
+                  <span className="font-mono">{ttsPitch.toFixed(2)}</span>
+                </div>
+                <input type="range" min={0.3} max={2.0} step={0.05} value={ttsPitch}
+                  onChange={(e) => setTtsPitch(parseFloat(e.target.value))}
+                  className="w-full accent-blue-500 cursor-pointer" />
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>낮음</span><span>보통</span><span>높음</span>
+                </div>
+              </div>
+            </div>
+            {availableVoices.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400">음성 선택 <span className="text-gray-600">(브라우저/OS에 따라 다름)</span></p>
+                <div className="flex flex-wrap gap-2">
+                  {availableVoices.map((v) => (
+                    <button key={v.name} type="button"
+                      onClick={() => setSelectedVoiceName(v.name)}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${selectedVoiceName === v.name || (!selectedVoiceName && availableVoices[0]?.name === v.name) ? "border-blue-500 bg-blue-900/40 text-blue-300" : "border-gray-700 text-gray-400 hover:border-gray-500"}`}>
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-600">⚠ 브라우저 기본 한국어 음성은 대부분 여성입니다. Microsoft Edge나 Windows 사용 시 남성 음성이 추가로 제공될 수 있습니다.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 진행 바 */}

@@ -93,12 +93,15 @@ ${progressNote}
   const readable = new ReadableStream({
     async start(controller) {
       try {
+        const starterMessage: Anthropic.MessageParam = { role: "user", content: "면접을 시작해주세요." };
+        const effectiveMessages: Anthropic.MessageParam[] = [starterMessage, ...messages];
+
         const stream = client.messages.stream({
           model: "claude-opus-4-7",
           max_tokens: 2048,
           thinking: { type: "adaptive" },
           system: systemPrompt,
-          messages: messages.length > 0 ? messages : [{ role: "user", content: "면접을 시작해주세요." }],
+          messages: effectiveMessages,
         });
 
         for await (const event of stream) {
