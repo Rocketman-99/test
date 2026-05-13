@@ -119,6 +119,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
           interviewType: settings.interviewType,
           difficulty: settings.difficulty,
           totalQuestions: settings.totalQuestions,
+          resumeContext: settings.resumeContext || undefined,
           apiKey: apiKey || undefined,
         }),
       });

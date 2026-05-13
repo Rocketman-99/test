@@ -73,6 +73,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
           interviewType: settings.interviewType,
           difficulty: settings.difficulty,
           totalQuestions: settings.totalQuestions,
+          resumeContext: settings.resumeContext || undefined,
           apiKey: apiKey || undefined,
         }),
       });
