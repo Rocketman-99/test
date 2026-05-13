@@ -4,12 +4,13 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { profile, interviewType, difficulty, totalQuestions, apiKey } = body as {
+  const { profile, interviewType, difficulty, totalQuestions, apiKey, resumeContext } = body as {
     profile: UserProfile;
     interviewType: "job_round" | "executive_round";
     difficulty: "normal" | "pressure";
     totalQuestions: number;
     apiKey?: string;
+    resumeContext?: string;
   };
 
   let client: Anthropic;
@@ -79,9 +80,13 @@ BEI(행동사건면접)와 SI(상황면접) 중심으로, 지원자가 직무 �
 ## ⚡ 압박 시나리오
 가치관·태도 답변이 두루뭉술할 때 활용할 압박 상황 예시 2~3개`;
 
+  const resumeSection = resumeContext
+    ? `\n[이력서/자소서 내용]\n${resumeContext}\n---\n`
+    : "";
+
   const userPrompt = `[지원자 프로필]
 ${profileContext}
-
+${resumeSection}
 ---
 
 위 정보를 바탕으로 **${roundLabel}** 질문 뱅크를 작성해주세요.

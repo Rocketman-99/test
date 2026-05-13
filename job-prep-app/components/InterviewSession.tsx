@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-import type { UserSpec, Application } from "@/types/user";
+import type { UserSpec, Application, InterviewRecord } from "@/types/user";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Message {
@@ -41,6 +41,10 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
   const [elapsed, setElapsed] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackContent, setFeedbackContent] = useState("");
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -123,6 +127,64 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timerRunning]);
 
+  function saveInterviewRecord(finalMessages: Message[], feedback?: string) {
+    if (typeof window === "undefined" || !application) return;
+    const key = `interview-history-${application.id}`;
+    let existing: InterviewRecord[] = [];
+    try { existing = JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { existing = []; }
+    const record: InterviewRecord = {
+      id: crypto.randomUUID(),
+      settings: {
+        difficulty: settings.difficulty,
+        totalQuestions: settings.totalQuestions,
+        interviewType: settings.interviewType,
+        mode: settings.mode,
+      },
+      messages: finalMessages,
+      feedback,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [record, ...existing].slice(0, 5);
+    localStorage.setItem(key, JSON.stringify(updated));
+  }
+
+  async function loadFeedback(finalMessages: Message[]) {
+    setFeedbackLoading(true);
+    setFeedbackContent("");
+    setFeedbackVisible(true);
+    try {
+      const res = await fetch("/api/interview-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile,
+          messages: finalMessages,
+          settings,
+          apiKey: apiKey || undefined,
+        }),
+      });
+      if (!res.ok || !res.body) {
+        setFeedbackContent("[오류] 피드백 생성에 실패했습니다.");
+        setFeedbackLoading(false);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setFeedbackContent(accumulated);
+      }
+      saveInterviewRecord(finalMessages, accumulated);
+    } catch {
+      setFeedbackContent("[오류] 네트워크 오류가 발생했습니다.");
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }
+
   function stopAI() {
     abortRef.current?.abort();
   }
@@ -190,6 +252,9 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
 
       if (isLast) {
         setFinished(true);
+        // Save without feedback first; feedback saved after user loads it
+        const finalMessages = [...history, { role: "ai" as const, content: accumulated }];
+        saveInterviewRecord(finalMessages);
       } else {
         startTimer();
         setTimeout(() => textareaRef.current?.focus(), 100);
@@ -401,12 +466,43 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
           </div>
         </div>
       ) : (
-        <div className="px-4 py-4 bg-gray-900 border-t border-gray-800 text-center">
-          <p className="text-gray-400 text-sm mb-3">면접이 종료됐습니다.</p>
-          <button type="button" onClick={onClose}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors">
-            대시보드로 돌아가기
-          </button>
+        <div className="px-4 py-4 bg-gray-900 border-t border-gray-800">
+          <div className="max-w-2xl mx-auto space-y-3">
+            <p className="text-gray-400 text-sm text-center">면접이 종료됐습니다.</p>
+            <div className="flex gap-2 justify-center">
+              {!feedbackVisible && (
+                <button
+                  type="button"
+                  onClick={() => loadFeedback(messages)}
+                  disabled={feedbackLoading}
+                  className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50"
+                >
+                  {feedbackLoading ? "피드백 생성 중…" : "📊 피드백 보기"}
+                </button>
+              )}
+              <button type="button" onClick={onClose}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors">
+                대시보드로 돌아가기
+              </button>
+            </div>
+            {feedbackVisible && (
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <p className="text-xs text-gray-400 font-semibold mb-3 text-center">📊 면접 피드백</p>
+                {feedbackLoading && !feedbackContent ? (
+                  <div className="flex justify-center gap-1 py-4">
+                    {[0, 150, 300].map((d) => (
+                      <span key={d} className="w-2 h-2 bg-green-500 rounded-full animate-bounce"
+                        style={{ animationDelay: `${d}ms` }} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-gray-800 rounded-2xl px-4 py-3 text-gray-100 text-sm leading-relaxed prose prose-sm prose-invert max-w-none max-h-[40vh] overflow-y-auto">
+                    <ReactMarkdown>{feedbackContent}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

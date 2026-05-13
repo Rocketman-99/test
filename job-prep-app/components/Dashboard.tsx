@@ -7,6 +7,7 @@ import AiResultPanel from "./AiResultPanel";
 import SpecEditModal from "./SpecEditModal";
 import AddApplicationModal from "./AddApplicationModal";
 import InterviewSetupModal from "./InterviewSetupModal";
+import InterviewHistoryModal from "./InterviewHistoryModal";
 import InterviewSession from "./InterviewSession";
 import VoiceInterviewSession from "./VoiceInterviewSession";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
@@ -53,6 +54,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [showSpecEdit, setShowSpecEdit] = useState(false);
   const [addAppFor, setAddAppFor] = useState<Application | "new" | null>(null);
   const [interviewSetupFor, setInterviewSetupFor] = useState<Application | null>(null);
+  const [interviewHistoryFor, setInterviewHistoryFor] = useState<Application | null>(null);
   const [interviewSession, setInterviewSession] = useState<{ app: Application | null; settings: InterviewSettings } | null>(null);
 
   // AI panel state
@@ -510,7 +512,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                     )}
                     <button
                       type="button"
-                      onClick={() => setInterviewSetupFor(app)}
+                      onClick={() => setInterviewHistoryFor(app)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-lg transition-colors"
                     >
                       <span>🎤</span>모의 면접
@@ -593,7 +595,18 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         </div>
       </div>
 
-      {/* 모의 면접 */}
+      {/* 모의 면접 히스토리 */}
+      {interviewHistoryFor && (
+        <InterviewHistoryModal
+          application={interviewHistoryFor}
+          onNewInterview={() => {
+            setInterviewSetupFor(interviewHistoryFor);
+            setInterviewHistoryFor(null);
+          }}
+          onClose={() => setInterviewHistoryFor(null)}
+        />
+      )}
+      {/* 모의 면접 설정 */}
       {interviewSetupFor && (
         <InterviewSetupModal
           applicationLabel={interviewSetupFor.label}

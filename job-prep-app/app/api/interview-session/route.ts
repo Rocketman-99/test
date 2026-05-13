@@ -9,6 +9,7 @@ export interface InterviewSettings {
   questionNumber: number;
   isLastQuestion: boolean;
   mode?: "text" | "voice";
+  resumeContext?: string;
 }
 
 const DIFFICULTY_GUIDE: Record<string, string> = {
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     settings: InterviewSettings;
     questionBank?: string;
     apiKey?: string;
+    resumeContext?: string;
   };
 
   let client: Anthropic;
@@ -52,18 +54,22 @@ export async function POST(request: Request) {
     questionNumber === 0
       ? `지금은 ${roundLabel} 시작 단계입니다. 간단히 자기소개를 요청한 후 첫 번째 질문을 해주세요.`
       : isLastQuestion
-        ? `지금은 마지막(${questionNumber}번째) 질문입니다. 답변에 피드백 후 종합 평가를 제공하고 면접을 마무리해주세요.`
-        : `지금은 ${questionNumber}번째 답변에 대한 피드백 후 ${questionNumber + 1}번째 질문을 해주세요.`;
+        ? `지금은 마지막 답변(${questionNumber}번째)을 들은 상태입니다. 짧게 수고했다는 말과 면접 종료 인사만 해주세요. 평가나 피드백은 절대 하지 마세요.`
+        : `지금은 ${questionNumber}번째 답변을 들은 상태입니다. 피드백 없이 바로 ${questionNumber + 1}번째 질문만 해주세요.`;
 
   const questionBankSection = questionBank
     ? `\n[사전 준비된 질문 뱅크]\n아래 질문 뱅크를 면접 진행의 주요 재료로 활용하세요. 순서에 얽매이지 말고 대화 흐름에 맞게 자연스럽게 선택·변형해서 사용하세요.\n${questionBank}\n`
+    : "";
+
+  const resumeSection = settings.resumeContext
+    ? `\n[제출 서류]\n${settings.resumeContext}\n`
     : "";
 
   const systemPrompt = `당신은 ${roundLabel} 전문 면접관입니다. 아래 지원자의 정보를 숙지하고 실제 면접처럼 진행해주세요.
 
 [지원자 프로필]
 ${profileContext}
-${questionBankSection}
+${resumeSection}${questionBankSection}
 
 [면접 설정]
 - 면접 유형: ${roundLabel}
@@ -79,10 +85,8 @@ ${progressNote}
 
 [형식 규칙]
 - 질문은 반드시 한 번에 하나만, 출처가 자연스럽게 드러나지 않도록 할 것
-- 답변 피드백: 잘한 점 / 보완할 점 / STAR 활용 여부를 간결하게
-- 지원자 메시지에 【발화 분석】 항목이 있으면, 내용 피드백 외에 말하는 속도·자신감·명확성에 대한 한 줄 코멘트를 추가하세요
 - 꼬리 질문은 이전 답변 내용을 직접 인용해서 연결
-- 마지막 평가: 총평 / 강점 / 개선 필요 영역 / 질문 유형별 수행도 정리 (음성 면접이면 발화 방식 종합 평가도 포함)
+- 마지막에는 짧은 종료 인사만 할 것. 피드백과 평가는 별도 제공 예정
 - 모든 응답은 한국어로, 자연스러운 면접관 말투로`;
 
   const encoder = new TextEncoder();

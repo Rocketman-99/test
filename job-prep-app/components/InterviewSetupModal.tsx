@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
@@ -14,9 +14,32 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
   const [difficulty, setDifficulty] = useState<"normal" | "pressure">("normal");
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [interviewType, setInterviewType] = useState<"job_round" | "executive_round">("job_round");
+  const [resumeExpanded, setResumeExpanded] = useState(false);
+  const [resumeContext, setResumeContext] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setResumeContext((prev) => (prev ? prev + "\n\n" + text : text));
+    };
+    reader.readAsText(file, "utf-8");
+    e.target.value = "";
+  }
 
   function handleStart() {
-    onStart({ difficulty, totalQuestions, interviewType, questionNumber: 0, isLastQuestion: false, mode });
+    onStart({
+      difficulty,
+      totalQuestions,
+      interviewType,
+      questionNumber: 0,
+      isLastQuestion: false,
+      mode,
+      resumeContext: resumeContext.trim() || undefined,
+    });
   }
 
   return (
@@ -120,6 +143,47 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 이력서/자소서 추가 */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setResumeExpanded((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <span className="font-medium">이력서/자소서 추가 <span className="text-gray-400 font-normal">(선택)</span></span>
+              {resumeExpanded ? (
+                <span className="text-xs text-gray-400">접기 ▲</span>
+              ) : (
+                <span className="text-xs text-blue-600 font-medium">추가 ▼</span>
+              )}
+            </button>
+            {resumeExpanded && (
+              <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
+                <textarea
+                  value={resumeContext}
+                  onChange={(e) => setResumeContext(e.target.value)}
+                  rows={8}
+                  placeholder={"이력서 또는 자소서 내용을 붙여넣거나 파일을 업로드하세요.\n면접 질문이 실제 서류 내용을 기반으로 생성됩니다."}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".md,.txt"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs px-3 py-1.5 border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg transition-colors"
+                >
+                  📎 파일 업로드 (.md, .txt)
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

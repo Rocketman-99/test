@@ -50,3 +50,11 @@ export interface Application {
 
 // Legacy — kept for backwards compat
 export type UserProfile = UserSpec & { jobPosting: JobPosting };
+
+export interface InterviewRecord {
+  id: string;
+  settings: Pick<import("@/app/api/interview-session/route").InterviewSettings, "difficulty" | "totalQuestions" | "interviewType" | "mode">;
+  messages: Array<{ role: "ai" | "user"; content: string; elapsed?: number }>;
+  feedback?: string;
+  createdAt: string;
+}
