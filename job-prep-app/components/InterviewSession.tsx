@@ -199,7 +199,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     setAiError("");
     stopTimer();
 
-    const isLast = qNum > 0 && qNum >= settings.totalQuestions;
+    const isLast = qNum > 0 && qNum > settings.totalQuestions;
     const currentSettings: InterviewSettings = {
       ...settings,
       questionNumber: qNum,

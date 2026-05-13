@@ -328,7 +328,7 @@ export default function VoiceInterviewSession({ spec, application, settings, api
     setTurnState("processing");
     setMessages((prev) => [...prev, { role: "ai", content: "" }]);
 
-    const isLast = qNum > 0 && qNum >= settings.totalQuestions;
+    const isLast = qNum > 0 && qNum > settings.totalQuestions;
     const currentSettings: InterviewSettings = { ...settings, questionNumber: qNum, isLastQuestion: isLast };
     const apiMessages = history.map((m) => ({
       role: m.role === "ai" ? ("assistant" as const) : ("user" as const),
