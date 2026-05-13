@@ -98,7 +98,7 @@ ${progressNote}
           max_tokens: 2048,
           thinking: { type: "adaptive" },
           system: systemPrompt,
-          messages,
+          messages: messages.length > 0 ? messages : [{ role: "user", content: "면접을 시작해주세요." }],
         });
 
         for await (const event of stream) {

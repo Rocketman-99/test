@@ -145,12 +145,16 @@ export default function VoiceInterviewSession({ spec, application, settings, api
     const clean = stripMarkdown(text);
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "ko-KR";
-    utterance.rate = 0.88;
-    utterance.pitch = 1.05;
+    utterance.rate = 0.85;
+    utterance.pitch = 0.72;
 
     function pickVoice(voices: SpeechSynthesisVoice[]) {
-      const googleKo = voices.find((v) => v.name.includes("Google") && v.lang.startsWith("ko"));
-      if (googleKo) return googleKo;
+      // 남성 음성 우선 탐색
+      const maleKo = voices.find((v) => v.lang.startsWith("ko") && /male|남성|man/i.test(v.name));
+      if (maleKo) return maleKo;
+      // Google 한국어는 여성이라 제외하고 다른 ko 음성 탐색
+      const nonGoogleKr = voices.find((v) => v.lang === "ko-KR" && !v.name.includes("Google"));
+      if (nonGoogleKr) return nonGoogleKr;
       const exactKr = voices.find((v) => v.lang === "ko-KR");
       if (exactKr) return exactKr;
       return voices.find((v) => v.lang.startsWith("ko")) ?? null;
