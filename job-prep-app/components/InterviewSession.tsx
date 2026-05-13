@@ -40,6 +40,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
 
   const [elapsed, setElapsed] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [aiError, setAiError] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -195,6 +196,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     abortRef.current = controller;
 
     setLoading(true);
+    setAiError("");
     stopTimer();
 
     const isLast = qNum > 0 && qNum >= settings.totalQuestions;
@@ -226,11 +228,9 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
       });
 
       if (!res.ok || !res.body) {
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { role: "ai", content: "[오류] 서버 요청에 실패했습니다." };
-          return next;
-        });
+        setMessages((prev) => prev.slice(0, -1)); // rollback empty AI bubble
+        setAiError("서버 요청에 실패했습니다. 다시 제출해주세요.");
+        startTimer();
         setLoading(false);
         return;
       }
@@ -250,9 +250,20 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
         });
       }
 
+      if (accumulated.startsWith("[오류]")) {
+        // API returned error text — rollback and allow retry
+        setMessages((prev) => prev.slice(0, -1));
+        setAiError(accumulated.replace("[오류] ", ""));
+        startTimer();
+        setTimeout(() => textareaRef.current?.focus(), 100);
+        return;
+      }
+
+      // Successful response — now increment counter
+      setQuestionNumber(qNum);
+
       if (isLast) {
         setFinished(true);
-        // Save without feedback first; feedback saved after user loads it
         const finalMessages = [...history, { role: "ai" as const, content: accumulated }];
         saveInterviewRecord(finalMessages);
       } else {
@@ -261,11 +272,9 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
       }
     } catch (err) {
       if (err instanceof Error && err.name !== "AbortError") {
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { role: "ai", content: "[오류] 네트워크 오류가 발생했습니다." };
-          return next;
-        });
+        setMessages((prev) => prev.slice(0, -1));
+        setAiError("네트워크 오류가 발생했습니다. 다시 제출해주세요.");
+        startTimer();
       }
     } finally {
       setLoading(false);
@@ -289,7 +298,6 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     setAnswer("");
 
     const nextQ = questionNumber + 1;
-    setQuestionNumber(nextQ);
     sendToAI(newHistory, nextQ, questionBank);
   }
 
@@ -437,6 +445,11 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
       {!finished ? (
         <div className="px-4 py-4 bg-gray-900 border-t border-gray-800">
           <div className="max-w-2xl mx-auto space-y-2">
+            {aiError && (
+              <p className="text-xs text-red-400 text-center bg-red-900/20 rounded-lg py-1.5">
+                ⚠ {aiError}
+              </p>
+            )}
             {timerRunning && elapsed > 90 && (
               <p className={`text-xs text-center ${elapsed > 120 ? "text-red-400" : "text-yellow-400"}`}>
                 {elapsed > 120 ? "⚠ 2분 초과 — 답변을 마무리해주세요" : "💡 1분 30초 경과 — 곧 마무리해주세요"}

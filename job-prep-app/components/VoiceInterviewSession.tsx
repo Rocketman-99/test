@@ -317,7 +317,6 @@ export default function VoiceInterviewSession({ spec, application, settings, api
       setMessages(newHistory);
 
       const nextQ = questionNumber + 1;
-      setQuestionNumber(nextQ);
       sendToAI(newHistory, nextQ, questionBank);
     } catch {
       setAnalyzeError("음성 분석 중 오류가 발생했습니다.");
@@ -350,11 +349,8 @@ export default function VoiceInterviewSession({ spec, application, settings, api
       });
 
       if (!res.ok || !res.body) {
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { role: "ai", content: "[오류] 서버 요청에 실패했습니다." };
-          return next;
-        });
+        setMessages((prev) => prev.slice(0, -1)); // rollback empty AI bubble
+        setAnalyzeError("서버 요청에 실패했습니다. 다시 녹음해주세요.");
         setTurnState("recording_ready");
         return;
       }
@@ -373,6 +369,16 @@ export default function VoiceInterviewSession({ spec, application, settings, api
         });
       }
 
+      if (accumulated.startsWith("[오류]")) {
+        setMessages((prev) => prev.slice(0, -1));
+        setAnalyzeError(accumulated.replace("[오류] ", ""));
+        setTurnState("recording_ready");
+        return;
+      }
+
+      // Successful response — now increment counter
+      setQuestionNumber(qNum);
+
       if (isLast) {
         setTurnState("finished");
         speakText(accumulated, () => {});
@@ -383,11 +389,8 @@ export default function VoiceInterviewSession({ spec, application, settings, api
         speakText(accumulated, () => setTurnState("recording_ready"));
       }
     } catch {
-      setMessages((prev) => {
-        const next = [...prev];
-        next[next.length - 1] = { role: "ai", content: "[오류] 네트워크 오류가 발생했습니다." };
-        return next;
-      });
+      setMessages((prev) => prev.slice(0, -1));
+      setAnalyzeError("네트워크 오류가 발생했습니다. 다시 녹음해주세요.");
       setTurnState("recording_ready");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

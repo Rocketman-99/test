@@ -98,8 +98,7 @@ ${progressNote}
 
         const stream = client.messages.stream({
           model: "claude-opus-4-7",
-          max_tokens: 2048,
-          thinking: { type: "adaptive" },
+          max_tokens: 1024,
           system: systemPrompt,
           messages: effectiveMessages,
         });
@@ -114,12 +113,13 @@ ${progressNote}
         }
         controller.close();
       } catch (err) {
+        const raw = err instanceof Error ? err.message : String(err);
         const msg =
           err instanceof Anthropic.AuthenticationError
             ? "API 키가 유효하지 않습니다."
             : err instanceof Anthropic.RateLimitError
               ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-              : "AI 요청 중 오류가 발생했습니다.";
+              : raw;
         controller.enqueue(encoder.encode(`[오류] ${msg}`));
         controller.close();
       }
