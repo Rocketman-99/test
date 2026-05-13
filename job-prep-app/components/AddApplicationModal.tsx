@@ -16,6 +16,7 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
   );
   const [url, setUrl] = useState(initial?.jobPosting.url ?? "");
   const [text, setText] = useState(initial?.jobPosting.text ?? "");
+  const [coverLetterPrompts, setCoverLetterPrompts] = useState(initial?.coverLetterPrompts ?? "");
   const [error, setError] = useState("");
 
   function handleSave() {
@@ -39,6 +40,7 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
       id: initial?.id ?? crypto.randomUUID(),
       label: autoLabel,
       jobPosting,
+      coverLetterPrompts: coverLetterPrompts.trim() || undefined,
       createdAt: initial?.createdAt ?? new Date().toISOString(),
     });
   }
@@ -112,6 +114,20 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
               </div>
             </div>
           )}
+          {/* 자소서 문항 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">자소서 문항 <span className="text-gray-400 font-normal">(선택)</span></label>
+            </div>
+            <textarea
+              value={coverLetterPrompts}
+              onChange={(e) => setCoverLetterPrompts(e.target.value)}
+              placeholder={`기업에서 요구하는 자소서 문항을 입력하세요.\n문항이 있으면 해당 문항에 맞게 자소서가 생성됩니다.\n\n예시:\n1. 지원 동기 및 입사 후 포부 (500자)\n2. 본인의 강점과 직무 연관성 (700자)\n3. 어려운 상황을 극복한 경험 (600자)`}
+              rows={6}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none"
+            />
+            <p className="text-xs text-gray-400">문항 미입력 시 일반 자소서 항목(성장과정·지원동기·포부 등)으로 생성됩니다.</p>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">

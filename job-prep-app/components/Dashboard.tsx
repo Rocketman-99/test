@@ -193,7 +193,11 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profile: profileForAI, apiKey: apiKey || undefined }),
+          body: JSON.stringify({
+            profile: profileForAI,
+            apiKey: apiKey || undefined,
+            coverLetterPrompts: app?.coverLetterPrompts || undefined,
+          }),
           signal: controller.signal,
         });
 
@@ -421,9 +425,12 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                       <p className="text-xs text-gray-400 mt-0.5">
                         {new Date(app.createdAt).toLocaleDateString("ko-KR")}
                         {app.jobPosting.url && (
-                          <span className="ml-2 text-blue-400 truncate max-w-[200px] inline-block align-bottom">
+                          <span className="ml-2 text-blue-400 truncate max-w-[180px] inline-block align-bottom">
                             {app.jobPosting.url.replace(/^https?:\/\//, "").substring(0, 40)}
                           </span>
+                        )}
+                        {app.coverLetterPrompts && (
+                          <span className="ml-2 text-purple-400">✍️ 자소서 문항 있음</span>
                         )}
                       </p>
                     </div>

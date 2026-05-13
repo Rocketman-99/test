@@ -44,6 +44,7 @@ export interface Application {
   id: string;
   label: string;
   jobPosting: JobPosting;
+  coverLetterPrompts?: string;
   createdAt: string;
 }
 
