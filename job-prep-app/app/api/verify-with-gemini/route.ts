@@ -57,12 +57,14 @@ ${claudeOutput}
         }
         controller.close();
       } catch (err) {
-        const msg =
-          err instanceof Error && err.message.includes("API_KEY")
-            ? "Gemini API 키가 유효하지 않습니다."
-            : err instanceof Error && err.message.includes("quota")
-              ? "Gemini 요청 한도를 초과했습니다."
-              : "Gemini 요청 중 오류가 발생했습니다.";
+        const raw = err instanceof Error ? err.message : String(err);
+        const msg = raw.includes("API_KEY") || raw.includes("API key")
+          ? "Gemini API 키가 유효하지 않습니다."
+          : raw.includes("quota") || raw.includes("RESOURCE_EXHAUSTED")
+            ? "Gemini 요청 한도를 초과했습니다."
+            : raw.includes("PERMISSION_DENIED")
+              ? "Gemini API 키 권한이 없습니다."
+              : `Gemini 오류: ${raw}`;
         controller.enqueue(encoder.encode(`\n\n[오류] ${msg}`));
         controller.close();
       }
