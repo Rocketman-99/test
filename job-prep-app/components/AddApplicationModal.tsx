@@ -11,8 +11,10 @@ interface Props {
 
 export default function AddApplicationModal({ onSave, onClose, initial }: Props) {
   const [label, setLabel] = useState(initial?.label ?? "");
-  const [inputMode, setInputMode] = useState<"url" | "text">(
-    initial?.jobPosting.text ? "text" : "url"
+  const [inputMode, setInputMode] = useState<"url" | "text" | "prompts">(
+    initial?.coverLetterPrompts && !initial?.jobPosting.url && !initial?.jobPosting.text
+      ? "prompts"
+      : initial?.jobPosting.text ? "text" : "url"
   );
   const [url, setUrl] = useState(initial?.jobPosting.url ?? "");
   const [text, setText] = useState(initial?.jobPosting.text ?? "");
@@ -28,19 +30,30 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
       setError("공고 내용을 좀 더 붙여넣어주세요.");
       return;
     }
+    if (inputMode === "prompts" && !coverLetterPrompts.trim()) {
+      setError("자소서 문항을 입력해주세요.");
+      return;
+    }
 
     const jobPosting: JobPosting = {
       url: inputMode === "url" ? url.trim() : "",
       text: inputMode === "text" ? text.trim() : "",
     };
 
-    const autoLabel = label.trim() || (url ? new URL(url).hostname.replace("www.", "") : "새 공고");
+    let autoLabel = label.trim();
+    if (!autoLabel) {
+      if (inputMode === "url" && url) {
+        try { autoLabel = new URL(url).hostname.replace("www.", ""); } catch { autoLabel = "새 공고"; }
+      } else {
+        autoLabel = "새 공고";
+      }
+    }
 
     onSave({
       id: initial?.id ?? crypto.randomUUID(),
       label: autoLabel,
       jobPosting,
-      coverLetterPrompts: coverLetterPrompts.trim() || undefined,
+      coverLetterPrompts: inputMode === "prompts" ? coverLetterPrompts.trim() : (coverLetterPrompts.trim() || undefined),
       createdAt: initial?.createdAt ?? new Date().toISOString(),
     });
   }
@@ -72,61 +85,75 @@ export default function AddApplicationModal({ onSave, onClose, initial }: Props)
           </div>
 
           {/* 입력 방식 탭 */}
-          <div className="flex border-b gap-4">
-            {(["url", "text"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => { setInputMode(mode); setError(""); }}
-                className={`pb-2 text-sm font-medium border-b-2 transition-colors -mb-px
-                  ${inputMode === mode ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-              >
-                {mode === "url" ? "URL 입력" : "공고 내용 붙여넣기"}
-              </button>
-            ))}
-          </div>
+          <div>
+            <div className="flex border-b gap-4">
+              {([
+                { mode: "url", label: "URL 입력" },
+                { mode: "text", label: "공고내용 붙여넣기" },
+                { mode: "prompts", label: "자소서 문항 입력" },
+              ] as const).map(({ mode, label: tabLabel }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => { setInputMode(mode); setError(""); }}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors -mb-px
+                    ${inputMode === mode ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                >
+                  {tabLabel}
+                </button>
+              ))}
+            </div>
 
-          {inputMode === "url" ? (
-            <div className="space-y-1">
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => { setUrl(e.target.value); setError(""); }}
-                placeholder="https://www.wanted.co.kr/wd/..."
-                className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors
-                  ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
-              />
-              {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="pt-4">
+              {inputMode === "url" && (
+                <div className="space-y-1">
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => { setUrl(e.target.value); setError(""); }}
+                    placeholder="https://www.wanted.co.kr/wd/..."
+                    className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors
+                      ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
+                  />
+                  {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+                </div>
+              )}
+
+              {inputMode === "text" && (
+                <div className="space-y-1">
+                  <textarea
+                    value={text}
+                    onChange={(e) => { setText(e.target.value); setError(""); }}
+                    placeholder="채용 공고 내용을 복사해서 붙여넣으세요."
+                    rows={8}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors resize-none
+                      ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
+                  />
+                  <div className="flex justify-between">
+                    {error ? <p className="text-xs text-red-500">{error}</p> : <span />}
+                    <p className="text-xs text-gray-400">{text.length}자</p>
+                  </div>
+                </div>
+              )}
+
+              {inputMode === "prompts" && (
+                <div className="space-y-1">
+                  <textarea
+                    value={coverLetterPrompts}
+                    onChange={(e) => { setCoverLetterPrompts(e.target.value); setError(""); }}
+                    placeholder={"기업에서 요구하는 자소서 문항을 입력하세요.\n문항이 있으면 해당 문항에 맞게 자소서가 생성됩니다.\n\n예시:\n1. 지원 동기 및 입사 후 포부 (500자)\n2. 본인의 강점과 직무 연관성 (700자)\n3. 어려운 상황을 극복한 경험 (600자)"}
+                    rows={8}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors resize-none
+                      ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
+                  />
+                  <div className="flex justify-between">
+                    {error ? <p className="text-xs text-red-500">{error}</p> : <span />}
+                    <p className="text-xs text-gray-400">{coverLetterPrompts.length}자</p>
+                  </div>
+                  <p className="text-xs text-gray-400">자소서 문항만 입력 시, 공고 없이 해당 문항에 맞춰 자소서를 생성합니다.</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="space-y-1">
-              <textarea
-                value={text}
-                onChange={(e) => { setText(e.target.value); setError(""); }}
-                placeholder="채용 공고 내용을 복사해서 붙여넣으세요."
-                rows={8}
-                className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors resize-none
-                  ${error ? "border-red-400 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200 focus:border-blue-400"}`}
-              />
-              <div className="flex justify-between">
-                {error ? <p className="text-xs text-red-500">{error}</p> : <span />}
-                <p className="text-xs text-gray-400">{text.length}자</p>
-              </div>
-            </div>
-          )}
-          {/* 자소서 문항 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">자소서 문항 <span className="text-gray-400 font-normal">(선택)</span></label>
-            </div>
-            <textarea
-              value={coverLetterPrompts}
-              onChange={(e) => setCoverLetterPrompts(e.target.value)}
-              placeholder={`기업에서 요구하는 자소서 문항을 입력하세요.\n문항이 있으면 해당 문항에 맞게 자소서가 생성됩니다.\n\n예시:\n1. 지원 동기 및 입사 후 포부 (500자)\n2. 본인의 강점과 직무 연관성 (700자)\n3. 어려운 상황을 극복한 경험 (600자)`}
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none"
-            />
-            <p className="text-xs text-gray-400">문항 미입력 시 일반 자소서 항목(성장과정·지원동기·포부 등)으로 생성됩니다.</p>
           </div>
         </div>
 
