@@ -22,7 +22,6 @@ export async function POST(request: Request) {
         const stream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 8192,
-          thinking: { type: "adaptive" },
           system:
             "당신은 한국 취업 면접 전문 코치입니다. 지원자의 배경에 맞춘 예상 면접 질문과 모범 답변 가이드를 제공해주세요. 한국어로 작성하세요.",
           messages: [

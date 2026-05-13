@@ -22,7 +22,6 @@ export async function POST(request: Request) {
         const stream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 8192,
-          thinking: { type: "adaptive" },
           system:
             "당신은 한국 취업 시장 전문 이력서 작성 컨설턴트입니다. 지원자의 정보를 바탕으로 채용 공고에 최적화된 이력서를 작성해주세요. 한국어로 작성하세요.",
           messages: [

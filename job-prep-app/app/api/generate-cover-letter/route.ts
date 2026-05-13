@@ -26,7 +26,6 @@ export async function POST(request: Request) {
         const stream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 8192,
-          thinking: { type: "adaptive" },
           system:
             "당신은 한국 취업 시장 전문 자기소개서 작성 컨설턴트입니다. 진정성 있고 설득력 있는 자기소개서를 작성해주세요. 한국어로 작성하세요.",
           messages: [

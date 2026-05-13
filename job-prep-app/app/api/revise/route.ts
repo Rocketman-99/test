@@ -28,7 +28,6 @@ export async function POST(request: Request) {
         const stream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 8192,
-          thinking: { type: "adaptive" },
           system:
             "당신은 한국 취업 전문 컨설턴트입니다. 기존 문서를 사용자의 요청에 맞게 수정해주세요. 한국어로 작성하세요.",
           messages: [

@@ -69,8 +69,8 @@ export default function VoiceInterviewSession({ spec, application, settings, api
   const [feedbackContent, setFeedbackContent] = useState("");
   const [feedbackVisible, setFeedbackVisible] = useState(false);
 
-  const [ttsRate, setTtsRate] = useState(0.85);
-  const [ttsPitch, setTtsPitch] = useState(0.72);
+  const [ttsRate, setTtsRate] = useState(1.3);
+  const [ttsPitch, setTtsPitch] = useState(0.3);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);

@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
   const progressNote =
     questionNumber === 0
-      ? `지금은 ${roundLabel} 시작 단계입니다. 간단히 자기소개를 요청한 후 첫 번째 질문을 해주세요.`
+      ? `지금은 ${roundLabel} 시작 단계입니다. 지원자에게 자기소개만 요청해주세요. 첫 번째 면접 질문은 자기소개를 들은 다음에 합니다.`
       : isLastQuestion
         ? `지금은 마지막 답변(${questionNumber}번째)을 들은 상태입니다. 짧게 수고했다는 말과 면접 종료 인사만 해주세요. 평가나 피드백은 절대 하지 마세요.`
         : `지금은 ${questionNumber}번째 답변을 들은 상태입니다. 피드백 없이 바로 ${questionNumber + 1}번째 질문만 해주세요.`;
