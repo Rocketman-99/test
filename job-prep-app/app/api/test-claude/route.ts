@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   try {
     const client = new Anthropic({ apiKey: key });
     const message = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: "claude-sonnet-4-6",
       max_tokens: 64,
       messages: [{ role: "user", content: "안녕하세요. 한 문장으로 답해주세요." }],
     });
