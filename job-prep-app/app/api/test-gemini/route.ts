@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent("안녕하세요. 한 문장으로 답해주세요.");
     const text = result.response.text();
     return Response.json({ ok: true, response: text });

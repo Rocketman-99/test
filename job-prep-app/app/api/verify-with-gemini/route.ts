@@ -44,7 +44,7 @@ ${claudeOutput}
 마크다운 형식으로 작성해주세요.`;
 
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
