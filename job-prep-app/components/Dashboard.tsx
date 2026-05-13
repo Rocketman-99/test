@@ -46,6 +46,10 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [draftApiKey, setDraftApiKey] = useState(apiKey);
   const [draftGeminiKey, setDraftGeminiKey] = useState(geminiKey);
   const [keySaved, setKeySaved] = useState(false);
+  const [claudeTestResult, setClaudeTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [claudeTesting, setClaudeTesting] = useState(false);
+  const [geminiTestResult, setGeminiTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [geminiTesting, setGeminiTesting] = useState(false);
   const [showSpecEdit, setShowSpecEdit] = useState(false);
   const [addAppFor, setAddAppFor] = useState<Application | "new" | null>(null);
   const [interviewSetupFor, setInterviewSetupFor] = useState<Application | null>(null);
@@ -80,6 +84,42 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     saveGeminiKey(draftGeminiKey);
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
+  }
+
+  async function handleTestClaude() {
+    setClaudeTesting(true);
+    setClaudeTestResult(null);
+    try {
+      const res = await fetch("/api/test-claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ claudeApiKey: draftApiKey || undefined }),
+      });
+      const data = await res.json();
+      setClaudeTestResult({ ok: data.ok, msg: data.ok ? `연결 성공: ${data.response}` : data.error });
+    } catch {
+      setClaudeTestResult({ ok: false, msg: "네트워크 오류" });
+    } finally {
+      setClaudeTesting(false);
+    }
+  }
+
+  async function handleTestGemini() {
+    setGeminiTesting(true);
+    setGeminiTestResult(null);
+    try {
+      const res = await fetch("/api/test-gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geminiApiKey: draftGeminiKey || undefined }),
+      });
+      const data = await res.json();
+      setGeminiTestResult({ ok: data.ok, msg: data.ok ? `연결 성공: ${data.response}` : data.error });
+    } catch {
+      setGeminiTestResult({ ok: false, msg: "네트워크 오류" });
+    } finally {
+      setGeminiTesting(false);
+    }
   }
 
   function handleDeleteApp(id: string) {
@@ -501,13 +541,35 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Anthropic API 키</label>
-                <input type="password" value={draftApiKey} onChange={(e) => setDraftApiKey(e.target.value)} placeholder="sk-ant-..."
+                <input type="password" value={draftApiKey} onChange={(e) => { setDraftApiKey(e.target.value); setClaudeTestResult(null); }} placeholder="sk-ant-..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                <div className="flex items-center gap-2 pt-1">
+                  <button type="button" onClick={handleTestClaude} disabled={claudeTesting}
+                    className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-50">
+                    {claudeTesting ? "테스트 중..." : "연결 테스트"}
+                  </button>
+                  {claudeTestResult && (
+                    <span className={`text-xs ${claudeTestResult.ok ? "text-green-600" : "text-red-500"}`}>
+                      {claudeTestResult.ok ? "✓" : "✗"} {claudeTestResult.msg}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Gemini API 키 (교차검증용)</label>
-                <input type="password" value={draftGeminiKey} onChange={(e) => setDraftGeminiKey(e.target.value)} placeholder="AIza..."
+                <input type="password" value={draftGeminiKey} onChange={(e) => { setDraftGeminiKey(e.target.value); setGeminiTestResult(null); }} placeholder="AIza..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                <div className="flex items-center gap-2 pt-1">
+                  <button type="button" onClick={handleTestGemini} disabled={geminiTesting}
+                    className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-50">
+                    {geminiTesting ? "테스트 중..." : "연결 테스트"}
+                  </button>
+                  {geminiTestResult && (
+                    <span className={`text-xs ${geminiTestResult.ok ? "text-green-600" : "text-red-500"}`}>
+                      {geminiTestResult.ok ? "✓" : "✗"} {geminiTestResult.msg}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button
