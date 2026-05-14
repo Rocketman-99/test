@@ -134,7 +134,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     onApplicationsChange(updated);
   }
 
-  async function generateCompanyInfo(app: Application) {
+  async function generateCompanyInfo(app: Application, currentApps: Application[]) {
     if (!app.jobPosting.text && !app.jobPosting.url && !app.label) return;
     setCompanyInfoLoading((prev) => ({ ...prev, [app.id]: true }));
     try {
@@ -150,7 +150,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       const data = await res.json();
       if (data.companyInfo) {
         const updatedApp = { ...app, companyInfo: data.companyInfo };
-        const updatedApps = applications.map((a) => (a.id === app.id ? updatedApp : a));
+        const updatedApps = currentApps.map((a) => (a.id === app.id ? updatedApp : a));
         saveApplications(updatedApps);
         onApplicationsChange(updatedApps);
       }
@@ -169,15 +169,19 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       exists.jobPosting.url !== app.jobPosting.url ||
       exists.label !== app.label
     );
+    // 수정 시 companyInfo 유지 (모달이 해당 필드를 포함하지 않으므로)
+    const appToSave = !isNew && exists?.companyInfo && !postingChanged
+      ? { ...app, companyInfo: exists.companyInfo }
+      : app;
     const updated = isNew
-      ? [...applications, app]
-      : applications.map((a) => (a.id === app.id ? app : a));
+      ? [...applications, appToSave]
+      : applications.map((a) => (a.id === app.id ? appToSave : a));
     saveApplications(updated);
     onApplicationsChange(updated);
     setAddAppFor(null);
 
     if (isNew || postingChanged) {
-      generateCompanyInfo(app);
+      generateCompanyInfo(app, updated);
     }
   }
 
@@ -560,7 +564,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                       ) : (
                         <button
                           type="button"
-                          onClick={() => generateCompanyInfo(app)}
+                          onClick={() => generateCompanyInfo(app, applications)}
                           className="text-xs px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-400 transition-colors"
                           title="기업정보 생성"
                         >
@@ -706,7 +710,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                 type="button"
                 onClick={() => {
                   setCompanyInfoView(null);
-                  generateCompanyInfo(companyInfoView);
+                  generateCompanyInfo(companyInfoView, applications);
                 }}
                 disabled={companyInfoLoading[companyInfoView.id]}
                 className="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
