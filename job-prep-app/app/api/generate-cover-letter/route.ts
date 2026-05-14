@@ -1,13 +1,13 @@
-import { getClient, buildProfileContext } from "@/lib/claude";
-import type { UserProfile } from "@/types/user";
+import { getClient, buildCoverLetterContext, buildApplicationContext } from "@/lib/claude";
+import type { UserSpec, Application } from "@/types/user";
 import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { profile, apiKey, coverLetterPrompts } = body as {
-    profile: UserProfile;
+  const { spec, application, apiKey } = body as {
+    spec: UserSpec;
+    application: Application;
     apiKey?: string;
-    coverLetterPrompts?: string;
   };
 
   let client: Anthropic;
@@ -17,25 +17,41 @@ export async function POST(request: Request) {
     return Response.json({ error: "API 키가 없습니다." }, { status: 400 });
   }
 
-  const profileContext = buildProfileContext(profile);
+  const specContext = buildCoverLetterContext(spec);
+  const appContext = buildApplicationContext(application);
+  const coverLetterPrompts = application.coverLetterPrompts?.trim();
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
       try {
+        const userContent = coverLetterPrompts
+          ? `다음 정보를 바탕으로 자기소개서를 작성해주세요.
+채용공고와 기업정보를 반영하고, 아래 자소서 문항에 맞춰 각 항목별로 작성해주세요.
+기업이 원하는 인재상과 직무 요구역량에 맞게 지원자의 경험을 녹여 작성하세요.
+마크다운 형식으로 작성하되, 각 문항을 제목(##)으로 구분해주세요.
+
+${appContext}
+
+${specContext}
+
+[자소서 문항]
+${coverLetterPrompts}`
+          : `다음 정보를 바탕으로 자기소개서를 작성해주세요.
+채용공고와 기업정보를 반영하고, 기업이 원하는 인재상과 직무 요구역량에 맞게 지원자의 경험을 녹여 작성하세요.
+일반적인 자소서 항목(성장과정·성격의 장단점·지원동기·입사 후 포부)을 포함해주세요.
+마크다운 형식으로 작성해주세요.
+
+${appContext}
+
+${specContext}`;
+
         const stream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 8192,
           system:
-            "당신은 한국 취업 시장 전문 자기소개서 작성 컨설턴트입니다. 진정성 있고 설득력 있는 자기소개서를 작성해주세요. 한국어로 작성하세요.",
-          messages: [
-            {
-              role: "user",
-              content: coverLetterPrompts?.trim()
-                ? `다음 지원자의 정보를 바탕으로 자기소개서를 작성해주세요.\n채용 공고가 있다면 공고에 맞게 내용을 최적화하고, 아래 자소서 문항에 맞춰 각 항목별로 작성해주세요.\n마크다운 형식으로 작성하되, 각 문항을 제목(##)으로 구분해주세요.\n\n[지원자 정보]\n${profileContext}\n\n[자소서 문항]\n${coverLetterPrompts}`
-                : `다음 지원자의 정보를 바탕으로 자기소개서를 작성해주세요.\n일반적인 자소서 항목(성장과정·성격의 장단점·지원동기·입사 후 포부)을 포함하고, 채용 공고가 있다면 공고에 맞게 내용을 최적화해주세요.\n마크다운 형식으로 작성해주세요.\n\n${profileContext}`,
-            },
-          ],
+            "당신은 한국 취업 시장 전문 자기소개서 작성 컨설턴트입니다. 기업의 인재상과 직무 요구역량에 맞게 지원자의 경험을 진정성 있고 설득력 있게 녹여내는 자소서를 작성해주세요. 한국어로 작성하세요.",
+          messages: [{ role: "user", content: userContent }],
         });
 
         for await (const event of stream) {

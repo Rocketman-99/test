@@ -115,11 +115,12 @@ export default function VoiceInterviewSession({ spec, application, settings, api
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          profile,
+          spec,
+          application,
           interviewType: settings.interviewType,
           difficulty: settings.difficulty,
           totalQuestions: settings.totalQuestions,
-          resumeContext: settings.resumeContext || undefined,
+          coverLetter: settings.coverLetter || undefined,
           apiKey: apiKey || undefined,
         }),
       });

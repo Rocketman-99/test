@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { UserProfile } from "@/types/user";
+import type { UserProfile, UserSpec, Application } from "@/types/user";
 
 export function getClient(apiKey?: string) {
   return new Anthropic({ apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY });
@@ -69,4 +69,66 @@ ${experienceRaw.text}
 집중 영역: ${weakPoints}
 
 ${postingSection}`;
+}
+
+export function buildResumeContext(spec: UserSpec): string {
+  const { basicInfo, experienceRaw } = spec;
+
+  const langScores =
+    basicInfo.languageScores.length > 0
+      ? basicInfo.languageScores.map((s) => `${s.type} ${s.score}`).join(", ")
+      : "없음";
+  const certs =
+    basicInfo.certifications.length > 0
+      ? basicInfo.certifications.join(", ")
+      : "없음";
+
+  return `[지원자 기본정보]
+이름: ${basicInfo.name}
+학교/전공: ${basicInfo.school} ${basicInfo.major}
+학점: ${basicInfo.gpa || "미입력"}
+졸업 상태: ${basicInfo.graduationStatus} (${basicInfo.graduationYear || "미입력"})
+어학: ${langScores}
+자격증: ${certs}
+
+[경험]
+${experienceRaw.text}`;
+}
+
+export function buildCoverLetterContext(spec: UserSpec): string {
+  const { basicInfo, experienceRaw } = spec;
+
+  const langScores =
+    basicInfo.languageScores.length > 0
+      ? basicInfo.languageScores.map((s) => `${s.type} ${s.score}`).join(", ")
+      : "없음";
+  const certs =
+    basicInfo.certifications.length > 0
+      ? basicInfo.certifications.join(", ")
+      : "없음";
+
+  return `[지원자 정보]
+이름: ${basicInfo.name}
+학교/전공: ${basicInfo.school} ${basicInfo.major}
+학점: ${basicInfo.gpa || "미입력"}
+어학: ${langScores}
+자격증: ${certs}
+
+[경험 (자소서 작성의 핵심 재료)]
+${experienceRaw.text}`;
+}
+
+export function buildApplicationContext(application: Application): string {
+  const posting = application.jobPosting;
+  const postingSection =
+    posting.url || posting.text
+      ? `${posting.url ? `URL: ${posting.url}\n` : ""}${posting.text ? posting.text : ""}`
+      : "공고 내용 미입력";
+
+  const companyInfoSection = application.companyInfo
+    ? `\n[기업정보]\n${application.companyInfo}`
+    : "";
+
+  return `[채용공고 — ${application.label}]
+${postingSection}${companyInfoSection}`;
 }

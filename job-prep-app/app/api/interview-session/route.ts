@@ -9,7 +9,8 @@ export interface InterviewSettings {
   questionNumber: number;
   isLastQuestion: boolean;
   mode?: "text" | "voice";
-  resumeContext?: string;
+  coverLetter?: string;
+  companyInfo?: string;
 }
 
 const DIFFICULTY_GUIDE: Record<string, string> = {
@@ -35,7 +36,6 @@ export async function POST(request: Request) {
     settings: InterviewSettings;
     questionBank?: string;
     apiKey?: string;
-    resumeContext?: string;
   };
 
   let client: Anthropic;
@@ -61,15 +61,19 @@ export async function POST(request: Request) {
     ? `\n[사전 준비된 질문 뱅크]\n아래 질문 뱅크를 면접 진행의 주요 재료로 활용하세요. 순서에 얽매이지 말고 대화 흐름에 맞게 자연스럽게 선택·변형해서 사용하세요.\n${questionBank}\n`
     : "";
 
-  const resumeSection = settings.resumeContext
-    ? `\n[제출 서류]\n${settings.resumeContext}\n`
+  const coverLetterSection = settings.coverLetter
+    ? `\n[제출한 자소서]\n${settings.coverLetter}\n`
+    : "";
+
+  const companyInfoSection = settings.companyInfo
+    ? `\n[기업정보]\n${settings.companyInfo}\n`
     : "";
 
   const systemPrompt = `당신은 ${roundLabel} 전문 면접관입니다. 아래 지원자의 정보를 숙지하고 실제 면접처럼 진행해주세요.
 
 [지원자 프로필]
 ${profileContext}
-${resumeSection}${questionBankSection}
+${companyInfoSection}${coverLetterSection}${questionBankSection}
 
 [면접 설정]
 - 면접 유형: ${roundLabel}

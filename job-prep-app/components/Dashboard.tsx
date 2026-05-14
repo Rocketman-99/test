@@ -10,6 +10,7 @@ import InterviewSetupModal from "./InterviewSetupModal";
 import InterviewHistoryModal from "./InterviewHistoryModal";
 import InterviewSession from "./InterviewSession";
 import VoiceInterviewSession from "./VoiceInterviewSession";
+import InterviewQuestionsModal from "./InterviewQuestionsModal";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
@@ -56,6 +57,9 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [interviewSetupFor, setInterviewSetupFor] = useState<Application | null>(null);
   const [interviewHistoryFor, setInterviewHistoryFor] = useState<Application | null>(null);
   const [interviewSession, setInterviewSession] = useState<{ app: Application | null; settings: InterviewSettings } | null>(null);
+  const [interviewQuestionsFor, setInterviewQuestionsFor] = useState<Application | null>(null);
+  const [companyInfoView, setCompanyInfoView] = useState<Application | null>(null);
+  const [companyInfoLoading, setCompanyInfoLoading] = useState<Record<string, boolean>>({});
 
   // AI panel state
   const [panelTitle, setPanelTitle] = useState("");
@@ -130,14 +134,51 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     onApplicationsChange(updated);
   }
 
+  async function generateCompanyInfo(app: Application) {
+    if (!app.jobPosting.text && !app.jobPosting.url && !app.label) return;
+    setCompanyInfoLoading((prev) => ({ ...prev, [app.id]: true }));
+    try {
+      const res = await fetch("/api/generate-company-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: app.label,
+          jobPosting: app.jobPosting,
+          apiKey: apiKey || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.companyInfo) {
+        const updatedApp = { ...app, companyInfo: data.companyInfo };
+        const updatedApps = applications.map((a) => (a.id === app.id ? updatedApp : a));
+        saveApplications(updatedApps);
+        onApplicationsChange(updatedApps);
+      }
+    } catch {
+      // 실패해도 공고는 저장된 상태로 유지
+    } finally {
+      setCompanyInfoLoading((prev) => ({ ...prev, [app.id]: false }));
+    }
+  }
+
   function handleSaveApp(app: Application) {
     const exists = applications.find((a) => a.id === app.id);
-    const updated = exists
-      ? applications.map((a) => (a.id === app.id ? app : a))
-      : [...applications, app];
+    const isNew = !exists;
+    const postingChanged = exists && (
+      exists.jobPosting.text !== app.jobPosting.text ||
+      exists.jobPosting.url !== app.jobPosting.url ||
+      exists.label !== app.label
+    );
+    const updated = isNew
+      ? [...applications, app]
+      : applications.map((a) => (a.id === app.id ? app : a));
     saveApplications(updated);
     onApplicationsChange(updated);
     setAddAppFor(null);
+
+    if (isNew || postingChanged) {
+      generateCompanyInfo(app);
+    }
   }
 
   const [historyView, setHistoryView] = useState<{
@@ -190,6 +231,11 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
 
   const openFeature = useCallback(
     (featureKey: DocFeature | "organize", title: string, endpoint: string, app: Application | null) => {
+      if (featureKey === "interview") {
+        // 면접 질문은 자소서 입력 모달을 먼저 띄움
+        setInterviewQuestionsFor(app);
+        return;
+      }
       const items = loadHistory(featureKey, app?.id ?? null);
       setHistoryView({ featureKey, title, endpoint, app, items });
     },
@@ -218,7 +264,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   }
 
   const runGenerate = useCallback(
-    async (endpoint: string, app: Application | null, featureKey?: string) => {
+    async (endpoint: string, app: Application | null, featureKey?: string, extraBody?: Record<string, unknown>) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -226,20 +272,38 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       setResult("");
       setLoading(true);
 
-      const profileForAI = {
-        ...spec,
-        jobPosting: app?.jobPosting ?? { url: "", text: "" },
-      };
+      let requestBody: Record<string, unknown>;
+
+      if (featureKey === "organize") {
+        requestBody = {
+          profile: { ...spec, jobPosting: app?.jobPosting ?? { url: "", text: "" } },
+          apiKey: apiKey || undefined,
+        };
+      } else if (featureKey === "resume" || featureKey === "cover-letter") {
+        requestBody = {
+          spec,
+          application: app,
+          apiKey: apiKey || undefined,
+        };
+      } else if (featureKey === "interview") {
+        requestBody = {
+          application: app,
+          coverLetter: extraBody?.coverLetter ?? "",
+          apiKey: apiKey || undefined,
+        };
+      } else {
+        requestBody = {
+          profile: { ...spec, jobPosting: app?.jobPosting ?? { url: "", text: "" } },
+          apiKey: apiKey || undefined,
+          coverLetterPrompts: app?.coverLetterPrompts || undefined,
+        };
+      }
 
       try {
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            profile: profileForAI,
-            apiKey: apiKey || undefined,
-            coverLetterPrompts: app?.coverLetterPrompts || undefined,
-          }),
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
 
@@ -374,6 +438,10 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
 
   const isPanelOpen = panelEndpoint !== "";
 
+  // 현재 applications 최신값을 runGenerate 내에서 참조하기 위한 ref
+  const applicationsRef = useRef(applications);
+  applicationsRef.current = applications;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4 py-8">
       <div className="w-full max-w-2xl mx-auto space-y-4">
@@ -477,6 +545,28 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
+                      {/* 기업정보 버튼 */}
+                      {companyInfoLoading[app.id] ? (
+                        <span className="text-xs px-2 py-1 text-gray-400 animate-pulse">🏢 생성 중...</span>
+                      ) : app.companyInfo ? (
+                        <button
+                          type="button"
+                          onClick={() => setCompanyInfoView(app)}
+                          className="text-xs px-2 py-1 border border-green-200 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                          title="기업정보 확인"
+                        >
+                          🏢 기업정보
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => generateCompanyInfo(app)}
+                          className="text-xs px-2 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-400 transition-colors"
+                          title="기업정보 생성"
+                        >
+                          🏢 생성
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setAddAppFor(app)}
@@ -595,6 +685,62 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         </div>
       </div>
 
+      {/* 기업정보 모달 */}
+      {companyInfoView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <div>
+                <h2 className="font-bold text-gray-800 text-base">🏢 기업정보</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{companyInfoView.label}</p>
+              </div>
+              <button type="button" onClick={() => setCompanyInfoView(null)} className="text-gray-400 hover:text-gray-600 text-xl px-1">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
+                {companyInfoView.companyInfo}
+              </pre>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 shrink-0 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCompanyInfoView(null);
+                  generateCompanyInfo(companyInfoView);
+                }}
+                disabled={companyInfoLoading[companyInfoView.id]}
+                className="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {companyInfoLoading[companyInfoView.id] ? "재생성 중..." : "재생성"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCompanyInfoView(null)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 면접 질문 생성 모달 */}
+      {interviewQuestionsFor && (
+        <InterviewQuestionsModal
+          applicationLabel={interviewQuestionsFor.label}
+          onGenerate={(coverLetter) => {
+            const app = interviewQuestionsFor;
+            const title = `면접 질문 — ${app.label}`;
+            const endpoint = DOC_FEATURES.interview.endpoint;
+            setInterviewQuestionsFor(null);
+            openPanel("interview", title, endpoint, app);
+            runGenerate(endpoint, app, "interview", { coverLetter });
+          }}
+          onClose={() => setInterviewQuestionsFor(null)}
+        />
+      )}
+
       {/* 모의 면접 히스토리 */}
       {interviewHistoryFor && (
         <InterviewHistoryModal
@@ -610,6 +756,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       {interviewSetupFor && (
         <InterviewSetupModal
           applicationLabel={interviewSetupFor.label}
+          companyInfo={interviewSetupFor.companyInfo}
           onStart={(s) => {
             setInterviewSession({ app: interviewSetupFor, settings: s });
             setInterviewSetupFor(null);

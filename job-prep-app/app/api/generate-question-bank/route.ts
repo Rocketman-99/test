@@ -1,16 +1,17 @@
-import { getClient, buildProfileContext } from "@/lib/claude";
-import type { UserProfile } from "@/types/user";
+import { getClient, buildApplicationContext } from "@/lib/claude";
+import type { UserSpec, Application } from "@/types/user";
 import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { profile, interviewType, difficulty, totalQuestions, apiKey, resumeContext } = body as {
-    profile: UserProfile;
+  const { spec, application, interviewType, difficulty, totalQuestions, apiKey, coverLetter } = body as {
+    spec: UserSpec;
+    application: Application | null;
     interviewType: "job_round" | "executive_round";
     difficulty: "normal" | "pressure";
     totalQuestions: number;
     apiKey?: string;
-    resumeContext?: string;
+    coverLetter?: string;
   };
 
   let client: Anthropic;
@@ -20,10 +21,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "API 키가 없습니다." }, { status: 400 });
   }
 
-  const profileContext = buildProfileContext(profile);
-
   const isJobRound = interviewType === "job_round";
   const roundLabel = isJobRound ? "1차 직무면접" : "2차 임원면접";
+  const jobTitle = application?.label ?? (spec?.goals?.targetRole ? (Array.isArray(spec.goals.targetRole) ? spec.goals.targetRole.join(", ") : spec.goals.targetRole) : "지원 직무");
 
   const distribution = isJobRound
     ? `직무 기술 50% / 자기소개서 기반(직무 관련 경험) 35% / 기업·산업 기반 15%`
@@ -42,7 +42,7 @@ BEI(행동사건면접)와 SI(상황면접) 중심으로, 지원자가 직무 �
 지원자의 핵심 가치관, 협업 방식, 리더십 경험, 성장 동기, 회사에 대한 이해와 입사 의지를 깊이 탐색하는 질문을 만드세요.
 직무 기술보다 '이 사람이 우리 조직에 맞는가'를 판단하는 데 집중하세요.`;
 
-  const systemPrompt = `당신은 대한민국 채용 전문 컨설턴트입니다. 지원자의 프로필과 채용 공고를 분석해 실전 면접 질문 뱅크를 작성해주세요.`;
+  const systemPrompt = `당신은 대한민국 채용 전문 컨설턴트입니다. 채용공고, 기업정보, 자소서를 분석해 실전 면접 질문 뱅크를 작성해주세요.`;
 
   const sections = isJobRound
     ? `## 🙋 자기소개서 기반 질문 (직무 관련 경험 중심)
@@ -53,7 +53,7 @@ BEI(행동사건면접)와 SI(상황면접) 중심으로, 지원자가 직무 �
 - 꼬리: [예상 답변에 따른 후속 질문 1~2개]
 
 ## 💼 직무 기술 질문
-희망 직무(${Array.isArray(profile.goals.targetRole) ? profile.goals.targetRole.join(", ") : profile.goals.targetRole}) 특화 역량·기술 검증 질문
+${jobTitle} 특화 역량·기술 검증 질문
 (위와 동일한 형식)
 
 ## 🏢 기업·산업 기반 질문
@@ -80,13 +80,13 @@ BEI(행동사건면접)와 SI(상황면접) 중심으로, 지원자가 직무 �
 ## ⚡ 압박 시나리오
 가치관·태도 답변이 두루뭉술할 때 활용할 압박 상황 예시 2~3개`;
 
-  const resumeSection = resumeContext
-    ? `\n[이력서/자소서 내용]\n${resumeContext}\n---\n`
+  const appContext = application ? buildApplicationContext(application) : "";
+  const coverLetterSection = coverLetter?.trim()
+    ? `\n[제출한 자소서]\n${coverLetter.trim()}\n---\n`
     : "";
 
-  const userPrompt = `[지원자 프로필]
-${profileContext}
-${resumeSection}
+  const userPrompt = `${appContext}
+${coverLetterSection}
 ---
 
 위 정보를 바탕으로 **${roundLabel}** 질문 뱅크를 작성해주세요.
@@ -110,7 +110,7 @@ ${roundFocus}
 [출력 형식 — 반드시 아래 구조 준수]
 
 ## 📋 공고 분석
-채용 공고와 지원자 프로필을 분석한 핵심 포인트 (${isJobRound ? "요구 역량, 기술 스택, 주목할 직무 경험" : "인재상, 조직문화, 주목할 가치관·성장 스토리"})
+채용 공고와 기업정보를 분석한 핵심 포인트 (${isJobRound ? "요구 역량, 기술 스택, 주목할 직무 경험" : "인재상, 조직문화, 주목할 가치관·성장 스토리"})
 
 ${sections}`;
 

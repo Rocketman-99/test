@@ -5,17 +5,18 @@ import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
   applicationLabel: string;
+  companyInfo?: string;
   onStart: (settings: InterviewSettings) => void;
   onClose: () => void;
 }
 
-export default function InterviewSetupModal({ applicationLabel, onStart, onClose }: Props) {
+export default function InterviewSetupModal({ applicationLabel, companyInfo, onStart, onClose }: Props) {
   const [mode, setMode] = useState<"text" | "voice">("text");
   const [difficulty, setDifficulty] = useState<"normal" | "pressure">("normal");
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [interviewType, setInterviewType] = useState<"job_round" | "executive_round">("job_round");
-  const [resumeExpanded, setResumeExpanded] = useState(false);
-  const [resumeContext, setResumeContext] = useState("");
+  const [coverLetterExpanded, setCoverLetterExpanded] = useState(false);
+  const [coverLetter, setCoverLetter] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -24,7 +25,7 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      setResumeContext((prev) => (prev ? prev + "\n\n" + text : text));
+      setCoverLetter((prev) => (prev ? prev + "\n\n" + text : text));
     };
     reader.readAsText(file, "utf-8");
     e.target.value = "";
@@ -38,7 +39,8 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
       questionNumber: 0,
       isLastQuestion: false,
       mode,
-      resumeContext: resumeContext.trim() || undefined,
+      coverLetter: coverLetter.trim() || undefined,
+      companyInfo: companyInfo || undefined,
     });
   }
 
@@ -145,27 +147,40 @@ export default function InterviewSetupModal({ applicationLabel, onStart, onClose
             </div>
           </div>
 
-          {/* 이력서/자소서 추가 */}
+          {/* 기업정보 상태 표시 */}
+          {companyInfo ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+              <span className="text-green-600 text-sm">🏢</span>
+              <span className="text-xs text-green-700 font-medium">기업정보가 반영됩니다</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+              <span className="text-gray-400 text-sm">🏢</span>
+              <span className="text-xs text-gray-500">기업정보 없음 — 공고 저장 후 자동 생성됩니다</span>
+            </div>
+          )}
+
+          {/* 자소서 첨부 */}
           <div className="border border-gray-200 rounded-xl overflow-hidden">
             <button
               type="button"
-              onClick={() => setResumeExpanded((v) => !v)}
+              onClick={() => setCoverLetterExpanded((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              <span className="font-medium">이력서/자소서 추가 <span className="text-gray-400 font-normal">(선택)</span></span>
-              {resumeExpanded ? (
+              <span className="font-medium">자소서 첨부 <span className="text-gray-400 font-normal">(권장)</span></span>
+              {coverLetterExpanded ? (
                 <span className="text-xs text-gray-400">접기 ▲</span>
               ) : (
                 <span className="text-xs text-blue-600 font-medium">추가 ▼</span>
               )}
             </button>
-            {resumeExpanded && (
+            {coverLetterExpanded && (
               <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
                 <textarea
-                  value={resumeContext}
-                  onChange={(e) => setResumeContext(e.target.value)}
+                  value={coverLetter}
+                  onChange={(e) => setCoverLetter(e.target.value)}
                   rows={8}
-                  placeholder={"이력서 또는 자소서 내용을 붙여넣거나 파일을 업로드하세요.\n면접 질문이 실제 서류 내용을 기반으로 생성됩니다."}
+                  placeholder={"제출한 자소서 내용을 붙여넣거나 파일을 업로드하세요.\n자소서 기반 꼬리 질문과 직무 연관 질문이 생성됩니다."}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
                 />
                 <input
