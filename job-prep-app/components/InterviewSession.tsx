@@ -152,6 +152,16 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     localStorage.setItem(key, JSON.stringify(updated));
   }
 
+  function updateLatestRecordFeedback(feedback: string) {
+    if (typeof window === "undefined" || !application || !feedback) return;
+    const key = `interview-history-${application.id}`;
+    let existing: InterviewRecord[] = [];
+    try { existing = JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { existing = []; }
+    if (existing.length === 0) return;
+    existing[0] = { ...existing[0], feedback };
+    localStorage.setItem(key, JSON.stringify(existing));
+  }
+
   async function loadFeedback(finalMessages: Message[]) {
     feedbackAbortRef.current?.abort();
     const controller = new AbortController();
@@ -186,7 +196,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
         accumulated += decoder.decode(value, { stream: true });
         setFeedbackContent(accumulated);
       }
-      if (!controller.signal.aborted) saveInterviewRecord(finalMessages, accumulated);
+      updateLatestRecordFeedback(accumulated);
     } catch (err) {
       if (err instanceof Error && err.name !== "AbortError") {
         setFeedbackContent("[오류] 네트워크 오류가 발생했습니다.");
