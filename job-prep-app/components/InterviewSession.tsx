@@ -50,6 +50,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const feedbackAbortRef = useRef<AbortController | null>(null);
 
   const profile = {
     ...spec,
@@ -152,6 +153,9 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
   }
 
   async function loadFeedback(finalMessages: Message[]) {
+    feedbackAbortRef.current?.abort();
+    const controller = new AbortController();
+    feedbackAbortRef.current = controller;
     setFeedbackLoading(true);
     setFeedbackContent("");
     setFeedbackVisible(true);
@@ -159,6 +163,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
       const res = await fetch("/api/interview-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           profile,
           messages: finalMessages,
@@ -175,17 +180,25 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
       const decoder = new TextDecoder();
       let accumulated = "";
       while (true) {
+        if (controller.signal.aborted) break;
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
         setFeedbackContent(accumulated);
       }
-      saveInterviewRecord(finalMessages, accumulated);
-    } catch {
-      setFeedbackContent("[오류] 네트워크 오류가 발생했습니다.");
+      if (!controller.signal.aborted) saveInterviewRecord(finalMessages, accumulated);
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        setFeedbackContent("[오류] 네트워크 오류가 발생했습니다.");
+      }
     } finally {
       setFeedbackLoading(false);
     }
+  }
+
+  function stopFeedback() {
+    feedbackAbortRef.current?.abort();
+    setFeedbackLoading(false);
   }
 
   function stopAI() {
@@ -485,14 +498,22 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
           <div className="max-w-2xl mx-auto space-y-3">
             <p className="text-gray-400 text-sm text-center">면접이 종료됐습니다.</p>
             <div className="flex gap-2 justify-center">
-              {!feedbackVisible && (
+              {!feedbackVisible && !feedbackLoading && (
                 <button
                   type="button"
                   onClick={() => loadFeedback(messages)}
-                  disabled={feedbackLoading}
-                  className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50"
+                  className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-colors"
                 >
-                  {feedbackLoading ? "피드백 생성 중…" : "📊 피드백 보기"}
+                  📊 피드백 보기
+                </button>
+              )}
+              {feedbackLoading && (
+                <button
+                  type="button"
+                  onClick={stopFeedback}
+                  className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                >
+                  ■ 생성 중지
                 </button>
               )}
               <button type="button" onClick={onClose}

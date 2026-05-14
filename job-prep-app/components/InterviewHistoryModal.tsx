@@ -9,6 +9,7 @@ interface Props {
   application: Application;
   onNewInterview: () => void;
   onClose: () => void;
+  onDelete?: (recordId: string) => void;
 }
 
 function formatDate(iso: string): string {
@@ -30,12 +31,24 @@ function loadHistory(appId: string): InterviewRecord[] {
   }
 }
 
-export default function InterviewHistoryModal({ application, onNewInterview, onClose }: Props) {
-  const [records] = useState<InterviewRecord[]>(() => loadHistory(application.id));
+function saveHistory(appId: string, records: InterviewRecord[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(`interview-history-${appId}`, JSON.stringify(records));
+}
+
+export default function InterviewHistoryModal({ application, onNewInterview, onClose, onDelete }: Props) {
+  const [records, setRecords] = useState<InterviewRecord[]>(() => loadHistory(application.id));
   const [viewingRecord, setViewingRecord] = useState<InterviewRecord | null>(null);
 
   const difficultyLabel = (d: string) => (d === "normal" ? "일반" : "압박");
   const typeLabel = (t: string) => (t === "job_round" ? "1차 직무" : "2차 임원");
+
+  function handleDelete(recordId: string) {
+    const updated = records.filter((r) => r.id !== recordId);
+    setRecords(updated);
+    saveHistory(application.id, updated);
+    onDelete?.(recordId);
+  }
 
   if (viewingRecord) {
     return (
@@ -109,20 +122,29 @@ export default function InterviewHistoryModal({ application, onNewInterview, onC
             <>
               <p className="text-xs text-gray-500">이전 면접 기록을 선택하거나 새 면접을 시작하세요.</p>
               {records.map((record) => (
-                <button
-                  key={record.id}
-                  type="button"
-                  onClick={() => setViewingRecord(record)}
-                  className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-purple-300 hover:bg-purple-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-purple-600">
-                      {typeLabel(record.settings.interviewType)} · {difficultyLabel(record.settings.difficulty)}
-                    </span>
-                    <span className="text-xs text-gray-400">{formatDate(record.createdAt)}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">{record.settings.totalQuestions}문항</p>
-                </button>
+                <div key={record.id} className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setViewingRecord(record)}
+                    className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-purple-300 hover:bg-purple-50 transition-colors pr-10"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-purple-600">
+                        {typeLabel(record.settings.interviewType)} · {difficultyLabel(record.settings.difficulty)}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatDate(record.createdAt)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500">{record.settings.totalQuestions}문항</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(record.id); }}
+                    className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all text-xs"
+                    title="삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </>
           )}

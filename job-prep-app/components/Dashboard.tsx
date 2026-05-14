@@ -202,6 +202,13 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     try { return JSON.parse(localStorage.getItem(getHistoryKey(featureKey, appId)) ?? "[]"); } catch { return []; }
   }
 
+  function deleteHistoryItem(featureKey: string, appId: string | null, itemId: string) {
+    const existing = loadHistory(featureKey, appId);
+    const updated = existing.filter((item) => item.id !== itemId);
+    localStorage.setItem(getHistoryKey(featureKey, appId), JSON.stringify(updated));
+    setHistoryView((prev) => prev ? { ...prev, items: updated } : null);
+  }
+
   function saveToHistory(featureKey: string, appId: string | null, content: string): { seqNum: number; createdAt: string } | null {
     if (typeof window === "undefined" || !content || content.startsWith("[오류]")) return null;
     const existing = loadHistory(featureKey, appId);
@@ -293,6 +300,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
         requestBody = {
           application: app,
           coverLetter: extraBody?.coverLetter ?? "",
+          questionCount: extraBody?.questionCount ?? 15,
           apiKey: apiKey || undefined,
         };
       } else {
@@ -733,13 +741,13 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       {interviewQuestionsFor && (
         <InterviewQuestionsModal
           applicationLabel={interviewQuestionsFor.label}
-          onGenerate={(coverLetter) => {
+          onGenerate={(coverLetter, questionCount) => {
             const app = interviewQuestionsFor;
             const title = `면접 질문 — ${app.label}`;
             const endpoint = DOC_FEATURES.interview.endpoint;
             setInterviewQuestionsFor(null);
             openPanel("interview", title, endpoint, app);
-            runGenerate(endpoint, app, "interview", { coverLetter });
+            runGenerate(endpoint, app, "interview", { coverLetter, questionCount });
           }}
           onClose={() => setInterviewQuestionsFor(null)}
         />
@@ -823,23 +831,32 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                 <p className="text-xs text-gray-500">이전에 생성한 결과를 선택하거나 새로 생성하세요.</p>
               )}
               {historyView.items.map((item, idx) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => openPanel(
-                    historyView.featureKey, historyView.title, historyView.endpoint, historyView.app,
-                    item.content,
-                    historyView.items.length - idx,
-                    item.createdAt
-                  )}
-                  className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-blue-600">#{historyView.items.length - idx}번째 생성</span>
-                    <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">{item.content.slice(0, 120).replace(/[#*`]/g, "")}…</p>
-                </button>
+                <div key={item.id} className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => openPanel(
+                      historyView.featureKey, historyView.title, historyView.endpoint, historyView.app,
+                      item.content,
+                      historyView.items.length - idx,
+                      item.createdAt
+                    )}
+                    className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors pr-10"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-blue-600">#{historyView.items.length - idx}번째 생성</span>
+                      <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-2">{item.content.slice(0, 120).replace(/[#*`]/g, "")}…</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteHistoryItem(historyView.featureKey, historyView.app?.id ?? null, item.id); }}
+                    className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all text-xs"
+                    title="삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
 

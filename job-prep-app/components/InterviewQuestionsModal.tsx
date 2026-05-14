@@ -4,12 +4,13 @@ import { useState, useRef } from "react";
 
 interface Props {
   applicationLabel: string;
-  onGenerate: (coverLetter: string) => void;
+  onGenerate: (coverLetter: string, questionCount: number) => void;
   onClose: () => void;
 }
 
 export default function InterviewQuestionsModal({ applicationLabel, onGenerate, onClose }: Props) {
   const [coverLetter, setCoverLetter] = useState("");
+  const [questionCount, setQuestionCount] = useState(15);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -35,7 +36,20 @@ export default function InterviewQuestionsModal({ applicationLabel, onGenerate, 
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl px-1">✕</button>
         </div>
 
-        <div className="px-6 py-5 space-y-3">
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-sm font-semibold text-gray-700">질문 수</label>
+            <div className="mt-1.5">
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Math.max(1, Math.min(50, Number(e.target.value) || 15)))}
+                className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+          </div>
           <div>
             <label className="text-sm font-semibold text-gray-700">자소서 첨부 <span className="font-normal text-gray-400">(권장)</span></label>
             <p className="text-xs text-gray-400 mt-0.5 mb-2">자소서를 첨부하면 실제 서류 기반의 꼬리 질문이 생성됩니다.</p>
@@ -73,7 +87,7 @@ export default function InterviewQuestionsModal({ applicationLabel, onGenerate, 
           </button>
           <button
             type="button"
-            onClick={() => onGenerate(coverLetter)}
+            onClick={() => onGenerate(coverLetter, questionCount)}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
           >
             질문 생성하기

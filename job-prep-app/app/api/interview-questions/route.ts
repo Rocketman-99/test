@@ -4,11 +4,13 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { application, coverLetter, apiKey } = body as {
+  const { application, coverLetter, questionCount, apiKey } = body as {
     application: Application;
     coverLetter?: string;
+    questionCount?: number;
     apiKey?: string;
   };
+  const count = Math.max(1, Math.min(50, questionCount ?? 15));
 
   let client: Anthropic;
   try {
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
           messages: [
             {
               role: "user",
-              content: `다음 정보를 바탕으로 면접 예상 질문 15개와 각 질문에 대한 답변 가이드를 작성해주세요.
+              content: `다음 정보를 바탕으로 면접 예상 질문 ${count}개와 각 질문에 대한 답변 가이드를 작성해주세요.
 인성 질문, 직무 질문, 상황 질문을 골고루 포함하고, 자소서 내용을 기반으로 한 꼬리 질문도 추가해주세요.
 마크다운 형식으로 작성해주세요.
 
