@@ -118,6 +118,15 @@ export function buildCoverLetterContext(spec: UserSpec): string {
 ${experienceRaw.text}`;
 }
 
+export function buildBasicContext(profile: UserProfile): string {
+  const { basicInfo, goals } = profile;
+  const targetRole = Array.isArray(goals.targetRole) ? goals.targetRole.join(", ") : goals.targetRole;
+  return `[지원자 기본정보]
+이름: ${basicInfo.name}
+학교/전공: ${basicInfo.school} ${basicInfo.major}
+희망 직무: ${targetRole}`;
+}
+
 export function buildApplicationContext(application: Application): string {
   const posting = application.jobPosting;
   const postingSection =

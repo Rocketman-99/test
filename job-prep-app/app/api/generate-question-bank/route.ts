@@ -25,9 +25,14 @@ export async function POST(request: Request) {
   const roundLabel = isJobRound ? "1차 직무면접" : "2차 임원면접";
   const jobTitle = application?.label ?? (spec?.goals?.targetRole ? (Array.isArray(spec.goals.targetRole) ? spec.goals.targetRole.join(", ") : spec.goals.targetRole) : "지원 직무");
 
-  const distribution = isJobRound
-    ? `직무 기술 50% / 자기소개서 기반(직무 관련 경험) 35% / 기업·산업 기반 15%`
-    : `인성·가치관 45% / 자기소개서 기반(성장·동기·가치관) 35% / 기업·산업 기반(입사 의지·비전) 20%`;
+  const hasCoverLetter = !!coverLetter?.trim();
+  const distribution = hasCoverLetter
+    ? isJobRound
+      ? `직무 기술 50% / 자기소개서 기반(직무 관련 경험) 35% / 기업·산업 기반 15%`
+      : `인성·가치관 45% / 자기소개서 기반(성장·동기·가치관) 35% / 기업·산업 기반(입사 의지·비전) 20%`
+    : isJobRound
+      ? `직무 기술 60% / 기업·산업 기반 25% / 일반 BEI 경험 질문 15%`
+      : `인성·가치관 60% / 기업·산업 기반 25% / 일반 BEI 경험 질문 15%`;
 
   const pressureNote =
     difficulty === "pressure"
@@ -44,9 +49,16 @@ BEI(행동사건면접)와 SI(상황면접) 중심으로, 지원자가 직무 �
 
   const systemPrompt = `당신은 대한민국 채용 전문 컨설턴트입니다. 채용공고, 기업정보, 자소서를 분석해 실전 면접 질문 뱅크를 작성해주세요.`;
 
+  const firstSection = hasCoverLetter
+    ? isJobRound
+      ? `## 🙋 자기소개서 기반 질문 (직무 관련 경험 중심)\n지원자의 실제 직무·프로젝트·활동 경험을 자소서에서 직접 인용해 만든 질문`
+      : `## 🙋 자기소개서 기반 질문 (성장·동기·가치관 중심)\n지원자의 자소서에서 가치관·태도·성장을 드러내는 질문`
+    : isJobRound
+      ? `## 🙋 경험 기반 질문 (일반 BEI/SI)\n자소서 없이 일반적인 과거 경험·상황 기반 질문. 특정 경험을 직접 언급하거나 자소서를 인용하지 말 것`
+      : `## 🙋 경험 기반 질문 (일반 BEI/SI)\n자소서 없이 일반적인 과거 경험·성장·가치관 기반 질문. 자소서를 인용하거나 특정 경험을 전제하지 말 것`;
+
   const sections = isJobRound
-    ? `## 🙋 자기소개서 기반 질문 (직무 관련 경험 중심)
-지원자의 실제 직무·프로젝트·활동 경험을 직접 언급한 질문
+    ? `${firstSection}
 각 질문마다:
 - 질문: (유형) [질문 내용]
 - 의도: [이 질문이 검증하려는 것]
@@ -62,8 +74,7 @@ ${jobTitle} 특화 역량·기술 검증 질문
 
 ## ⚡ 압박 시나리오
 직무 관련 답변이 불완전할 때 활용할 압박 상황 예시 2~3개`
-    : `## 🙋 자기소개서 기반 질문 (성장·동기·가치관 중심)
-지원자의 경험에서 가치관·태도·성장을 드러내는 질문
+    : `${firstSection}
 각 질문마다:
 - 질문: (유형) [질문 내용]
 - 의도: [이 질문이 검증하려는 것]
@@ -85,8 +96,12 @@ ${jobTitle} 특화 역량·기술 검증 질문
     ? `\n[제출한 자소서]\n${coverLetter.trim()}\n---\n`
     : "";
 
+  const noCoverLetterWarning = !hasCoverLetter
+    ? `⚠️ 제출된 자소서가 없습니다. 자소서를 직접 인용하거나 "자소서에 쓰신 것처럼", "기재하신 경험 중" 등의 표현을 절대 사용하지 마세요.\n`
+    : "";
+
   const userPrompt = `${appContext}
-${coverLetterSection}
+${coverLetterSection}${noCoverLetterWarning}
 ---
 
 위 정보를 바탕으로 **${roundLabel}** 질문 뱅크를 작성해주세요.

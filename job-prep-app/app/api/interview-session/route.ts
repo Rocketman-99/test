@@ -1,4 +1,4 @@
-import { getClient, buildProfileContext } from "@/lib/claude";
+import { getClient, buildBasicContext } from "@/lib/claude";
 import type { UserProfile } from "@/types/user";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -19,14 +19,26 @@ const DIFFICULTY_GUIDE: Record<string, string> = {
     "압박 면접 모드입니다. 날카롭게 반론을 제기하고, 답변의 허점을 파고들고, 재질문을 통해 압박하세요. 단, 무례하지는 않게 하세요.",
 };
 
-const TYPE_GUIDE: Record<string, string> = {
-  job_round: `[1차 직무면접] 직무 역량과 실무 적합성 검증에 집중하세요.
+function getTypeGuide(interviewType: string, hasCoverLetter: boolean): string {
+  if (interviewType === "job_round") {
+    return hasCoverLetter
+      ? `[1차 직무면접] 직무 역량과 실무 적합성 검증에 집중하세요.
 질문 출처 비중: 직무 기술 50% / 자기소개서 기반(직무 관련 경험) 35% / 기업·산업 기반 15%.
-BEI(행동사건면접)와 SI(상황면접) 위주로, 실제 업무 상황에서의 판단력·문제해결력을 파악하세요.`,
-  executive_round: `[2차 임원면접] 인성·가치관·조직 적합성 검증에 집중하세요.
+BEI(행동사건면접)와 SI(상황면접) 위주로, 실제 업무 상황에서의 판단력·문제해결력을 파악하세요.`
+      : `[1차 직무면접] 직무 역량과 실무 적합성 검증에 집중하세요.
+질문 출처 비중: 직무 기술 60% / 기업·산업 기반 25% / 일반 BEI 경험 질문 15%.
+BEI(행동사건면접)와 SI(상황면접) 위주로, 실제 업무 상황에서의 판단력·문제해결력을 파악하세요.
+⚠️ 제출된 자소서가 없습니다. "자소서에 쓰신", "기재하신 경험 중" 등 자소서를 직접 인용하는 표현을 절대 사용하지 마세요.`;
+  }
+  return hasCoverLetter
+    ? `[2차 임원면접] 인성·가치관·조직 적합성 검증에 집중하세요.
 질문 출처 비중: 인성·가치관 45% / 자기소개서 기반(성장·동기) 35% / 기업·산업 기반(입사 의지·비전) 20%.
-깊이 있는 가치관 질문, 리더십·협업 경험, 회사에 대한 이해와 입사 의지를 중점적으로 탐색하세요.`,
-};
+깊이 있는 가치관 질문, 리더십·협업 경험, 회사에 대한 이해와 입사 의지를 중점적으로 탐색하세요.`
+    : `[2차 임원면접] 인성·가치관·조직 적합성 검증에 집중하세요.
+질문 출처 비중: 인성·가치관 60% / 기업·산업 기반 25% / 일반 BEI 경험 질문 15%.
+깊이 있는 가치관 질문, 리더십·협업 경험, 회사에 대한 이해와 입사 의지를 중점적으로 탐색하세요.
+⚠️ 제출된 자소서가 없습니다. "자소서에 쓰신", "기재하신 경험 중" 등 자소서를 직접 인용하는 표현을 절대 사용하지 마세요.`;
+}
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -45,8 +57,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "API 키가 없습니다." }, { status: 400 });
   }
 
-  const profileContext = buildProfileContext(profile);
+  const profileContext = buildBasicContext(profile);
   const { difficulty, totalQuestions, interviewType, questionNumber, isLastQuestion } = settings;
+  const hasCoverLetter = !!settings.coverLetter?.trim();
 
   const roundLabel = interviewType === "job_round" ? "1차 직무면접" : "2차 임원면접";
 
@@ -82,7 +95,7 @@ ${companyInfoSection}${coverLetterSection}${questionBankSection}
 
 [진행 지침]
 ${DIFFICULTY_GUIDE[difficulty]}
-${TYPE_GUIDE[interviewType]}
+${getTypeGuide(interviewType, hasCoverLetter)}
 
 [현재 상태]
 ${progressNote}
