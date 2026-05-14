@@ -169,6 +169,7 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
     setFeedbackLoading(true);
     setFeedbackContent("");
     setFeedbackVisible(true);
+    let accumulated = "";
     try {
       const res = await fetch("/api/interview-feedback", {
         method: "POST",
@@ -183,12 +184,10 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
       });
       if (!res.ok || !res.body) {
         setFeedbackContent("[오류] 피드백 생성에 실패했습니다.");
-        setFeedbackLoading(false);
         return;
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let accumulated = "";
       while (true) {
         if (controller.signal.aborted) break;
         const { done, value } = await reader.read();
@@ -196,12 +195,12 @@ export default function InterviewSession({ spec, application, settings, apiKey, 
         accumulated += decoder.decode(value, { stream: true });
         setFeedbackContent(accumulated);
       }
-      updateLatestRecordFeedback(accumulated);
     } catch (err) {
       if (err instanceof Error && err.name !== "AbortError") {
         setFeedbackContent("[오류] 네트워크 오류가 발생했습니다.");
       }
     } finally {
+      updateLatestRecordFeedback(accumulated);
       setFeedbackLoading(false);
     }
   }
