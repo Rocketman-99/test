@@ -16,6 +16,7 @@ interface Props {
 }
 
 export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey, geminiKey, onSave, onNotesChange, onClose }: Props) {
+  const [title, setTitle] = useState("");
   const [questionText, setQuestionText] = useState("");
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
@@ -143,6 +144,7 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
     const note: AptitudeNote = {
       id: crypto.randomUUID(),
       folderId: selectedFolderId,
+      title: title.trim() || undefined,
       questionText: questionText.trim() || undefined,
       imageBase64: imageBase64 ?? undefined,
       imageMimeType: imageMimeType ?? undefined,
@@ -178,6 +180,18 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* 제목 입력 */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1.5">문제 제목 (선택)</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="예: 수열추리 3번, SKCT 2024 언어 Q12"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+
           {/* 통합 입력창 */}
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1.5">문제 입력</label>

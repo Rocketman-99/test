@@ -62,6 +62,7 @@ export interface AptitudeFolder {
 export interface AptitudeNote {
   id: string;
   folderId: string;
+  title?: string;
   questionText?: string;
   imageBase64?: string;
   imageMimeType?: string;
