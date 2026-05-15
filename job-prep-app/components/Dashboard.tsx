@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { UserSpec, Application } from "@/types/user";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { UserSpec, Application, AptitudeFolder, AptitudeNote } from "@/types/user";
 import { saveApplications } from "@/lib/store";
+import { loadFolders, loadNotes } from "@/lib/aptitude-store";
 import AiResultPanel from "./AiResultPanel";
 import SpecEditModal from "./SpecEditModal";
 import AddApplicationModal from "./AddApplicationModal";
@@ -11,6 +12,7 @@ import InterviewHistoryModal from "./InterviewHistoryModal";
 import InterviewSession from "./InterviewSession";
 import VoiceInterviewSession from "./VoiceInterviewSession";
 import InterviewQuestionsModal from "./InterviewQuestionsModal";
+import AptitudeSection from "./AptitudeSection";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
@@ -60,6 +62,8 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const [interviewQuestionsFor, setInterviewQuestionsFor] = useState<Application | null>(null);
   const [companyInfoView, setCompanyInfoView] = useState<Application | null>(null);
   const [companyInfoLoading, setCompanyInfoLoading] = useState<Record<string, boolean>>({});
+  const [aptitudeFolders, setAptitudeFolders] = useState<AptitudeFolder[]>([]);
+  const [aptitudeNotes, setAptitudeNotes] = useState<AptitudeNote[]>([]);
 
   // AI panel state
   const [panelTitle, setPanelTitle] = useState("");
@@ -450,6 +454,11 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
 
   const isPanelOpen = panelEndpoint !== "";
 
+  useEffect(() => {
+    setAptitudeFolders(loadFolders());
+    setAptitudeNotes(loadNotes());
+  }, []);
+
   // 현재 applications 최신값을 runGenerate 내에서 참조하기 위한 ref
   const applicationsRef = useRef(applications);
   applicationsRef.current = applications;
@@ -625,6 +634,16 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             </div>
           )}
         </div>
+
+        {/* 인적성 오답노트 */}
+        <AptitudeSection
+          folders={aptitudeFolders}
+          notes={aptitudeNotes}
+          apiKey={apiKey || undefined}
+          geminiKey={geminiKey || undefined}
+          onFoldersChange={setAptitudeFolders}
+          onNotesChange={setAptitudeNotes}
+        />
 
         {/* API 키 설정 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">

@@ -52,6 +52,23 @@ export interface Application {
 // Legacy — kept for backwards compat
 export type UserProfile = UserSpec & { jobPosting: JobPosting };
 
+export interface AptitudeFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface AptitudeNote {
+  id: string;
+  folderId: string;
+  questionText?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+  claudeSolution: string;
+  geminiSolution?: string;
+  createdAt: string;
+}
+
 export interface InterviewRecord {
   id: string;
   settings: Pick<import("@/app/api/interview-session/route").InterviewSettings, "difficulty" | "totalQuestions" | "interviewType" | "mode">;
