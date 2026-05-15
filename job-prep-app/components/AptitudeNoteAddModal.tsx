@@ -10,10 +10,11 @@ interface Props {
   apiKey?: string;
   geminiKey?: string;
   onSave: (note: AptitudeNote) => void;
+  onNotesChange: (notes: AptitudeNote[]) => void;
   onClose: () => void;
 }
 
-export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey, geminiKey, onSave, onClose }: Props) {
+export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey, geminiKey, onSave, onNotesChange, onClose }: Props) {
   const [questionText, setQuestionText] = useState("");
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
@@ -27,9 +28,7 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
   const claudeAbortRef = useRef<AbortController | null>(null);
   const geminiAbortRef = useRef<AbortController | null>(null);
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function applyImageFile(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -40,6 +39,25 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
       setImagePreview(dataUrl);
     };
     reader.readAsDataURL(file);
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) applyImageFile(file);
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        if (blob) applyImageFile(blob);
+        return;
+      }
+    }
+    // 이미지 없으면 기본 텍스트 붙여넣기 동작 유지
   }
 
   function clearImage() {
@@ -60,7 +78,12 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
       const res = await fetch("/api/solve-aptitude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionText: questionText || undefined, imageBase64: imageBase64 || undefined, imageMimeType: imageMimeType || undefined, apiKey: apiKey || undefined }),
+        body: JSON.stringify({
+          questionText: questionText || undefined,
+          imageBase64: imageBase64 || undefined,
+          imageMimeType: imageMimeType || undefined,
+          apiKey: apiKey || undefined,
+        }),
         signal: controller.signal,
       });
       const reader = res.body!.getReader();
@@ -69,8 +92,7 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
+        accumulated += decoder.decode(value, { stream: true });
         setClaudeSolution(accumulated);
       }
     } catch {
@@ -91,7 +113,12 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
       const res = await fetch("/api/solve-aptitude-gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionText: questionText || undefined, imageBase64: imageBase64 || undefined, imageMimeType: imageMimeType || undefined, geminiApiKey: geminiKey || undefined }),
+        body: JSON.stringify({
+          questionText: questionText || undefined,
+          imageBase64: imageBase64 || undefined,
+          imageMimeType: imageMimeType || undefined,
+          geminiApiKey: geminiKey || undefined,
+        }),
         signal: controller.signal,
       });
       const reader = res.body!.getReader();
@@ -100,8 +127,7 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
+        accumulated += decoder.decode(value, { stream: true });
         setGeminiSolution(accumulated);
       }
     } catch {
@@ -124,16 +150,25 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
       createdAt: new Date().toISOString(),
     };
     const existing = loadNotes();
-    saveNotes([...existing, note]);
+    const updated = [...existing, note];
+    saveNotes(updated);
+    onNotesChange(updated);
     onSave(note);
     onClose();
   }
+
+  // 폴더 선택 옵션: 루트 폴더 → 하위 폴더 순으로 계층 표시
+  const rootFolders = folders.filter((f) => !f.parentId);
+  const folderOptions = rootFolders.flatMap((root) => {
+    const subs = folders.filter((f) => f.parentId === root.id);
+    return [root, ...subs];
+  });
 
   const canSolve = !!(questionText.trim() || imageBase64);
   const canSave = !!claudeSolution && !!selectedFolderId;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
@@ -142,38 +177,51 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* 이미지 업로드 */}
+          {/* 통합 입력창 */}
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1.5">문제 이미지 (선택)</label>
-            {imagePreview ? (
-              <div className="relative inline-block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="문제 이미지" className="max-h-48 rounded-lg border border-gray-200 object-contain" />
-                <button type="button" onClick={clearImage}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600">
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 rounded-xl py-6 text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
-                📷 이미지 업로드 (jpg, png, webp, gif)
+            <label className="text-xs font-medium text-gray-600 block mb-1.5">문제 입력</label>
+            <div className="relative border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-transparent">
+              <textarea
+                value={questionText}
+                onChange={(e) => setQuestionText(e.target.value)}
+                onPaste={handlePaste}
+                placeholder="텍스트를 입력하거나 이미지를 붙여넣기 하세요 (Ctrl+V / Cmd+V)..."
+                rows={5}
+                className="w-full px-4 pt-3 pb-10 text-sm text-gray-900 focus:outline-none resize-none rounded-xl bg-transparent"
+              />
+              {/* 📷 버튼 — textarea 우하단 */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-2.5 right-3 text-gray-400 hover:text-blue-500 transition-colors text-lg"
+                title="이미지 파일 업로드"
+              >
+                📷
               </button>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageChange} />
-          </div>
-
-          {/* 텍스트 입력 */}
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1.5">문제 텍스트 (선택)</label>
-            <textarea
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              placeholder="문제를 텍스트로 입력하세요..."
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleImageChange}
             />
           </div>
+
+          {/* 이미지 미리보기 */}
+          {imagePreview && (
+            <div className="relative inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreview} alt="문제 이미지" className="max-h-48 rounded-xl border border-gray-200 object-contain" />
+              <button
+                type="button"
+                onClick={clearImage}
+                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Claude 풀이 버튼 */}
           <button
@@ -217,7 +265,7 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
             </div>
           )}
 
-          {/* 폴더 선택 */}
+          {/* 폴더 선택 — Claude 풀이 완료 후 표시 */}
           {claudeSolution && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1.5">저장할 폴더</label>
@@ -226,9 +274,14 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
                 onChange={(e) => setSelectedFolderId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
               >
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
+                {folderOptions.map((f) => {
+                  const isSub = !!f.parentId;
+                  return (
+                    <option key={f.id} value={f.id}>
+                      {isSub ? `  ㄴ ${f.name}` : f.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

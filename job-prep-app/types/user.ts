@@ -55,6 +55,7 @@ export type UserProfile = UserSpec & { jobPosting: JobPosting };
 export interface AptitudeFolder {
   id: string;
   name: string;
+  parentId?: string;
   createdAt: string;
 }
 

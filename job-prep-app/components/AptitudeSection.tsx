@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import type { AptitudeFolder, AptitudeNote } from "@/types/user";
-import { loadFolders, saveFolders } from "@/lib/aptitude-store";
+import { loadFolders, saveFolders, loadNotes, saveNotes } from "@/lib/aptitude-store";
 import AptitudeFolderViewModal from "./AptitudeFolderViewModal";
-import AptitudeNoteAddModal from "./AptitudeNoteAddModal";
 
 interface Props {
   folders: AptitudeFolder[];
@@ -19,7 +18,13 @@ export default function AptitudeSection({ folders, notes, apiKey, geminiKey, onF
   const [newFolderName, setNewFolderName] = useState("");
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [viewFolder, setViewFolder] = useState<AptitudeFolder | null>(null);
-  const [showAddNote, setShowAddNote] = useState<AptitudeFolder | null>(null);
+
+  const rootFolders = folders.filter((f) => !f.parentId);
+
+  function totalNoteCountFor(folderId: string): number {
+    const subIds = folders.filter((f) => f.parentId === folderId).map((f) => f.id);
+    return notes.filter((n) => n.folderId === folderId || subIds.includes(n.folderId)).length;
+  }
 
   function handleCreateFolder() {
     const name = newFolderName.trim();
@@ -37,13 +42,15 @@ export default function AptitudeSection({ folders, notes, apiKey, geminiKey, onF
   }
 
   function handleDeleteFolder(id: string) {
-    const updated = folders.filter((f) => f.id !== id);
-    saveFolders(updated);
-    onFoldersChange(updated);
-  }
-
-  function noteCountFor(folderId: string) {
-    return notes.filter((n) => n.folderId === folderId).length;
+    const subIds = folders.filter((f) => f.parentId === id).map((f) => f.id);
+    const allDeleteIds = new Set([id, ...subIds]);
+    const updatedFolders = folders.filter((f) => !allDeleteIds.has(f.id));
+    const updatedNotes = notes.filter((n) => !allDeleteIds.has(n.folderId));
+    saveFolders(updatedFolders);
+    saveNotes(updatedNotes);
+    onFoldersChange(updatedFolders);
+    onNotesChange(updatedNotes);
+    if (viewFolder && allDeleteIds.has(viewFolder.id)) setViewFolder(null);
   }
 
   return (
@@ -60,7 +67,6 @@ export default function AptitudeSection({ folders, notes, apiKey, geminiKey, onF
           </button>
         </div>
 
-        {/* 새 폴더 입력 */}
         {showNewFolder && (
           <div className="flex gap-2">
             <input
@@ -68,7 +74,7 @@ export default function AptitudeSection({ folders, notes, apiKey, geminiKey, onF
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") setShowNewFolder(false); }}
-              placeholder="예: SKCT - 수열추리"
+              placeholder="예: SKCT, 삼성 GSAT"
               autoFocus
               className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
@@ -83,21 +89,23 @@ export default function AptitudeSection({ folders, notes, apiKey, geminiKey, onF
           </div>
         )}
 
-        {/* 폴더 목록 */}
-        {folders.length === 0 ? (
+        {rootFolders.length === 0 ? (
           <p className="text-sm text-gray-400 py-4 text-center">
             아직 폴더가 없어요.<br />
-            <span className="text-xs">기업·영역 단위로 폴더를 만들어 오답노트를 관리하세요.</span>
+            <span className="text-xs">기업 단위로 상위 폴더를 만들고, 안에 영역별 하위 폴더를 추가하세요.</span>
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {folders.map((folder) => {
-              const count = noteCountFor(folder.id);
+            {rootFolders.map((folder) => {
+              const count = totalNoteCountFor(folder.id);
+              const subCount = folders.filter((f) => f.parentId === folder.id).length;
               const isEmpty = count === 0;
               return (
                 <div key={folder.id} className={`group relative border rounded-xl p-3 transition-colors ${isEmpty ? "border-gray-100 bg-gray-50" : "border-blue-100 bg-blue-50"}`}>
                   <p className={`text-sm font-medium truncate ${isEmpty ? "text-gray-400" : "text-gray-800"}`}>{folder.name}</p>
-                  <p className={`text-xs mt-0.5 ${isEmpty ? "text-gray-300" : "text-blue-500"}`}>{count}개 문제</p>
+                  <p className={`text-xs mt-0.5 ${isEmpty ? "text-gray-300" : "text-blue-500"}`}>
+                    {subCount > 0 ? `${subCount}개 영역 · ` : ""}{count}개 문제
+                  </p>
                   <div className="flex gap-1 mt-2">
                     <button
                       type="button"
@@ -124,24 +132,14 @@ export default function AptitudeSection({ folders, notes, apiKey, geminiKey, onF
 
       {viewFolder && (
         <AptitudeFolderViewModal
-          folder={viewFolder}
+          rootFolder={viewFolder}
           folders={folders}
           notes={notes}
           apiKey={apiKey}
           geminiKey={geminiKey}
+          onFoldersChange={onFoldersChange}
           onNotesChange={onNotesChange}
           onClose={() => setViewFolder(null)}
-        />
-      )}
-
-      {showAddNote && (
-        <AptitudeNoteAddModal
-          folders={folders}
-          defaultFolderId={showAddNote.id}
-          apiKey={apiKey}
-          geminiKey={geminiKey}
-          onSave={() => {}}
-          onClose={() => setShowAddNote(null)}
         />
       )}
     </>
