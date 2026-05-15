@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import type { AptitudeFolder, AptitudeNote } from "@/types/user";
 import { saveFolders, saveNotes } from "@/lib/aptitude-store";
 import AptitudeNoteAddModal from "./AptitudeNoteAddModal";
@@ -25,6 +26,7 @@ export default function AptitudeFolderViewModal({
   const [showAdd, setShowAdd] = useState(false);
   const [newSubName, setNewSubName] = useState("");
   const [showNewSub, setShowNewSub] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const isRoot = !currentFolder.parentId;
   const subFolders = folders.filter((f) => f.parentId === currentFolder.id);
@@ -186,12 +188,19 @@ export default function AptitudeFolderViewModal({
                       <div key={note.id} className="relative group border border-gray-100 rounded-xl overflow-hidden">
                         <div className="flex items-start gap-3 p-4">
                           {note.imageBase64 && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={`data:${note.imageMimeType};base64,${note.imageBase64}`}
-                              alt="문제 이미지"
-                              className="w-16 h-16 object-cover rounded-lg border border-gray-200 shrink-0"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setLightboxImage(`data:${note.imageMimeType};base64,${note.imageBase64}`)}
+                              className="shrink-0"
+                              title="이미지 전체 보기"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`data:${note.imageMimeType};base64,${note.imageBase64}`}
+                                alt="문제 이미지"
+                                className="w-16 h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity cursor-zoom-in"
+                              />
+                            </button>
                           )}
                           <div className="flex-1 min-w-0">
                             {note.questionText && (
@@ -243,8 +252,8 @@ export default function AptitudeFolderViewModal({
                                 </button>
                               )}
                             </div>
-                            <div className={`rounded-xl p-3 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed ${tab === "claude" ? "bg-blue-50" : "bg-purple-50"}`}>
-                              {tab === "claude" ? note.claudeSolution : note.geminiSolution}
+                            <div className={`rounded-xl p-3 prose prose-sm prose-gray max-w-none ${tab === "claude" ? "bg-blue-50" : "bg-purple-50"}`}>
+                              <ReactMarkdown>{tab === "claude" ? note.claudeSolution : (note.geminiSolution ?? "")}</ReactMarkdown>
                             </div>
                           </div>
                         )}
@@ -257,6 +266,21 @@ export default function AptitudeFolderViewModal({
           </div>
         </div>
       </div>
+
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 cursor-zoom-out"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxImage}
+            alt="문제 이미지 전체"
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {showAdd && (
         <AptitudeNoteAddModal

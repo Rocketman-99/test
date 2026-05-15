@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import type { AptitudeFolder, AptitudeNote } from "@/types/user";
 import { loadNotes, saveNotes } from "@/lib/aptitude-store";
 
@@ -237,8 +238,8 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
           {claudeSolution && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-gray-600">Claude 풀이</p>
-              <div className="bg-blue-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
-                {claudeSolution}
+              <div className="bg-blue-50 rounded-xl p-4 prose prose-sm prose-gray max-w-none max-h-60 overflow-y-auto">
+                <ReactMarkdown>{claudeSolution}</ReactMarkdown>
               </div>
             </div>
           )}
@@ -259,8 +260,8 @@ export default function AptitudeNoteAddModal({ folders, defaultFolderId, apiKey,
           {geminiSolution && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-gray-600">Gemini 풀이</p>
-              <div className="bg-purple-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
-                {geminiSolution}
+              <div className="bg-purple-50 rounded-xl p-4 prose prose-sm prose-gray max-w-none max-h-60 overflow-y-auto">
+                <ReactMarkdown>{geminiSolution}</ReactMarkdown>
               </div>
             </div>
           )}
