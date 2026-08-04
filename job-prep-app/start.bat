@@ -11,7 +11,34 @@ REM  garbles Korean text in .bat files.
 REM ---------------------------------------------------------------
 setlocal enabledelayedexpansion
 title Job Prep App
+
+REM ---- run from a temp copy ---------------------------------------
+REM An update can rewrite this very file while it is running, and cmd.exe
+REM keeps reading the batch file from disk by byte offset as it executes.
+REM Rewriting the original mid-run corrupts every line after that point,
+REM so hand off to a copy that git will never touch.
+REM Passing "%~dp0." instead of "%~dp0" avoids a trailing backslash right
+REM before the closing quote.
+if /i "%~n0"=="jobprep-launcher" goto :fromtemp
+copy /y "%~f0" "%TEMP%\jobprep-launcher.bat" >nul 2>&1
+if errorlevel 1 goto :inplace
+call "%TEMP%\jobprep-launcher.bat" "%~dp0." %*
+exit /b
+
+:fromtemp
+REM The app folder arrives as the first argument; shift so that the rest of
+REM the script sees the original arguments at %1 either way.
+REM No argument means this file was run directly rather than handed off, so
+REM fall back to running in place.
+if "%~1"=="" goto :inplace
+cd /d "%~1"
+shift
+goto :aftercd
+
+:inplace
 cd /d "%~dp0"
+
+:aftercd
 
 REM git commit messages are UTF-8 Korean; without this they render as mojibake.
 chcp 65001 >nul
@@ -106,6 +133,8 @@ if errorlevel 1 (
     goto :afterupdate
 )
 echo Update complete.
+REM This run keeps using the copy made before the update. If the update
+REM changed the launcher itself, the new one takes effect next launch.
 set "FORCE_BUILD=1"
 
 :afterupdate
