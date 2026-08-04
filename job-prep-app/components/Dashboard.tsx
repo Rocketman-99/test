@@ -14,6 +14,7 @@ import InterviewSession from "./InterviewSession";
 import VoiceInterviewSession from "./VoiceInterviewSession";
 import InterviewQuestionsModal from "./InterviewQuestionsModal";
 import AptitudeSection from "./AptitudeSection";
+import BackupSection from "./BackupSection";
 import type { InterviewSettings } from "@/app/api/interview-session/route";
 
 interface Props {
@@ -653,6 +654,9 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
           onFoldersChange={setAptitudeFolders}
           onNotesChange={setAptitudeNotes}
         />
+
+        {/* 데이터 백업 */}
+        <BackupSection />
 
         {/* API 키 설정 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
