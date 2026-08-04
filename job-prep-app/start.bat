@@ -70,17 +70,24 @@ if not defined BRANCH (
     goto :afterupdate
 )
 
-echo Checking GitHub for updates on branch !BRANCH! ...
+REM Compare against the branch this one actually tracks. A remote branch that
+REM merely shares the local name can be something else entirely, which would
+REM report "up to date" forever.
+set "UPSTREAM="
+for /f "usebackq delims=" %%u in (`git rev-parse --abbrev-ref --symbolic-full-name @{u} 2^>nul`) do set "UPSTREAM=%%u"
+if not defined UPSTREAM set "UPSTREAM=origin/!BRANCH!"
+
+echo Checking GitHub for updates: !BRANCH! vs !UPSTREAM! ...
 REM Fail fast instead of hanging on a credential prompt.
 set "GIT_TERMINAL_PROMPT=0"
-git fetch origin !BRANCH! >nul 2>&1
+git fetch origin >nul 2>&1
 if errorlevel 1 (
     echo Could not reach GitHub. Continuing with the local version.
     goto :afterupdate
 )
 
 set "BEHIND="
-for /f "usebackq delims=" %%c in (`git rev-list --count HEAD..origin/!BRANCH! 2^>nul`) do set "BEHIND=%%c"
+for /f "usebackq delims=" %%c in (`git rev-list --count HEAD..!UPSTREAM! 2^>nul`) do set "BEHIND=%%c"
 if not defined BEHIND goto :afterupdate
 if "!BEHIND!"=="0" (
     echo Already up to date.
@@ -94,25 +101,29 @@ echo ===============================================================
 echo.
 echo   What changed:
 echo.
-git log --no-merges --pretty=format:"   - %%s" HEAD..origin/!BRANCH!
+git log --no-merges --pretty=format:"   - %%s" HEAD..!UPSTREAM!
 echo.
 echo.
 echo   Files affected:
 echo.
-git diff --name-only HEAD origin/!BRANCH!
+git diff --name-only HEAD !UPSTREAM!
 echo.
 echo ===============================================================
 echo.
 
-REM Never overwrite uncommitted local edits.
+REM Untracked files are ignored on purpose: unrelated folders sitting in the
+REM clone would otherwise block every update forever. Tracked edits are only
+REM reported, not treated as fatal - git refuses a merge that would overwrite
+REM them, so the user can safely decide.
 set "DIRTY="
-for /f "usebackq delims=" %%d in (`git status --porcelain 2^>nul`) do set "DIRTY=1"
+for /f "usebackq delims=" %%d in (`git status --porcelain -uno 2^>nul`) do set "DIRTY=1"
 if defined DIRTY (
-    echo [WARNING] You have local changes that are not committed.
-    echo Updating could overwrite them, so the update was skipped.
+    echo   [WARNING] These tracked files have uncommitted edits:
     echo.
-    pause
-    goto :afterupdate
+    git status --porcelain -uno
+    echo.
+    echo   Git will refuse the update if it would overwrite any of them.
+    echo.
 )
 
 set "ANSWER="
@@ -124,7 +135,7 @@ if /i not "!ANSWER!"=="y" (
 
 echo.
 echo Updating...
-git merge --ff-only origin/!BRANCH!
+git merge --ff-only !UPSTREAM!
 if errorlevel 1 (
     echo.
     echo [ERROR] Update failed. Starting the current version instead.
