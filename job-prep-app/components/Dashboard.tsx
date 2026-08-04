@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { UserSpec, Application, AptitudeFolder, AptitudeNote } from "@/types/user";
 import { saveApplications } from "@/lib/store";
 import { loadFolders, loadNotes } from "@/lib/aptitude-store";
+import { normalizeApiKey } from "@/lib/api-key";
 import AiResultPanel from "./AiResultPanel";
 import SpecEditModal from "./SpecEditModal";
 import AddApplicationModal from "./AddApplicationModal";
@@ -40,11 +41,12 @@ const DOC_FEATURES: Record<DocFeature, { icon: string; label: string; endpoint: 
 export default function Dashboard({ spec, applications, onSpecChange, onApplicationsChange, onReset }: Props) {
   const { basicInfo, goals } = spec;
 
+  // 이미 공백이 섞인 채 저장된 키도 읽는 시점에 정리한다
   const [apiKey, setApiKey] = useState(
-    () => (typeof window !== "undefined" ? localStorage.getItem("anthropic-api-key") ?? "" : "")
+    () => (typeof window !== "undefined" ? normalizeApiKey(localStorage.getItem("anthropic-api-key")) ?? "" : "")
   );
   const [geminiKey, setGeminiKey] = useState(
-    () => (typeof window !== "undefined" ? localStorage.getItem("gemini-api-key") ?? "" : "")
+    () => (typeof window !== "undefined" ? normalizeApiKey(localStorage.getItem("gemini-api-key")) ?? "" : "")
   );
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [draftApiKey, setDraftApiKey] = useState(apiKey);
@@ -80,18 +82,25 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
   const abortRef = useRef<AbortController | null>(null);
 
   function saveApiKey(key: string) {
-    setApiKey(key);
-    localStorage.setItem("anthropic-api-key", key);
+    const clean = normalizeApiKey(key) ?? "";
+    setApiKey(clean);
+    localStorage.setItem("anthropic-api-key", clean);
   }
 
   function saveGeminiKey(key: string) {
-    setGeminiKey(key);
-    localStorage.setItem("gemini-api-key", key);
+    const clean = normalizeApiKey(key) ?? "";
+    setGeminiKey(clean);
+    localStorage.setItem("gemini-api-key", clean);
   }
 
   function handleSaveKeys() {
-    saveApiKey(draftApiKey);
-    saveGeminiKey(draftGeminiKey);
+    // 입력창에도 정리된 값을 되돌려 놔야 이후 연결 테스트가 같은 값을 쓴다
+    const cleanApiKey = normalizeApiKey(draftApiKey) ?? "";
+    const cleanGeminiKey = normalizeApiKey(draftGeminiKey) ?? "";
+    setDraftApiKey(cleanApiKey);
+    setDraftGeminiKey(cleanGeminiKey);
+    saveApiKey(cleanApiKey);
+    saveGeminiKey(cleanGeminiKey);
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   }
@@ -103,7 +112,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       const res = await fetch("/api/test-claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ claudeApiKey: draftApiKey || undefined }),
+        body: JSON.stringify({ claudeApiKey: normalizeApiKey(draftApiKey) }),
       });
       const data = await res.json();
       setClaudeTestResult({ ok: data.ok, msg: data.ok ? `연결 성공: ${data.response}` : data.error });
@@ -121,7 +130,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
       const res = await fetch("/api/test-gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ geminiApiKey: draftGeminiKey || undefined }),
+        body: JSON.stringify({ geminiApiKey: normalizeApiKey(draftGeminiKey) }),
       });
       const data = await res.json();
       setGeminiTestResult({ ok: data.ok, msg: data.ok ? `연결 성공: ${data.response}` : data.error });

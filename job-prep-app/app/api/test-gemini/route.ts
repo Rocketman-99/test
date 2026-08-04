@@ -1,10 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { normalizeApiKey } from "@/lib/api-key";
 
 export async function POST(request: Request) {
   const body = await request.json();
   const { geminiApiKey } = body as { geminiApiKey?: string };
 
-  const key = geminiApiKey ?? process.env.GEMINI_API_KEY;
+  const key = normalizeApiKey(geminiApiKey) ?? normalizeApiKey(process.env.GEMINI_API_KEY);
   if (!key) {
     return Response.json({ ok: false, error: "Gemini API 키가 없습니다." });
   }

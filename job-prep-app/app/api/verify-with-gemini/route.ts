@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildProfileContext } from "@/lib/claude";
+import { normalizeApiKey } from "@/lib/api-key";
 import type { UserProfile } from "@/types/user";
 
 const FEATURE_LABEL: Record<string, string> = {
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     geminiApiKey?: string;
   };
 
-  const key = geminiApiKey ?? process.env.GEMINI_API_KEY;
+  const key = normalizeApiKey(geminiApiKey) ?? normalizeApiKey(process.env.GEMINI_API_KEY);
   if (!key) {
     return Response.json({ error: "Gemini API 키가 없습니다." }, { status: 400 });
   }

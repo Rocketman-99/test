@@ -1,8 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { UserProfile, UserSpec, Application } from "@/types/user";
+import { normalizeApiKey } from "@/lib/api-key";
 
 export function getClient(apiKey?: string) {
-  return new Anthropic({ apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY });
+  return new Anthropic({
+    apiKey: normalizeApiKey(apiKey) ?? normalizeApiKey(process.env.ANTHROPIC_API_KEY),
+  });
 }
 
 export function buildProfileContext(profile: UserProfile): string {

@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { normalizeApiKey } from "@/lib/api-key";
 
 export async function POST(request: Request) {
   const body = await request.json();
   const { claudeApiKey } = body as { claudeApiKey?: string };
 
-  const key = claudeApiKey ?? process.env.ANTHROPIC_API_KEY;
+  const key = normalizeApiKey(claudeApiKey) ?? normalizeApiKey(process.env.ANTHROPIC_API_KEY);
   if (!key) {
     return Response.json({ ok: false, error: "Claude API 키가 없습니다." });
   }
