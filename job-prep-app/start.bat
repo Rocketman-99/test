@@ -163,13 +163,26 @@ REM ---- 2. decide whether to rebuild --------------------------------
 if "!FORCE_BUILD!"=="1"       goto :dobuild
 if not exist ".next\BUILD_ID" goto :dobuild
 
-REM Any source file newer than the last build means the build is stale.
-echo Checking for source changes...
-set "CHANGED=0"
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$b=Get-Item '.next\BUILD_ID' -EA SilentlyContinue; if(-not $b){Write-Output 1; exit}; $f=Get-ChildItem -Path 'app','components','lib','types','package.json','next.config.ts','tsconfig.json' -Recurse -File -EA SilentlyContinue; $r=0; foreach($x in $f){ if($x.LastWriteTime -gt $b.LastWriteTime){$r=1; break} }; Write-Output $r"`) do set "CHANGED=%%i"
-if "!CHANGED!"=="1" goto :dobuild
+REM Compare the commit this build came from with the current one. Two quick
+REM git calls, instead of spawning PowerShell to stat every source file --
+REM that process startup was what made every launch slow.
+set "HEADCOMMIT="
+for /f "usebackq delims=" %%h in (`git rev-parse HEAD 2^>nul`) do set "HEADCOMMIT=%%h"
+if not defined HEADCOMMIT goto :usebuild
+if not exist ".next\.build-commit" goto :dobuild
 
-echo No changes found. Using the existing build.
+set "BUILTCOMMIT="
+set /p "BUILTCOMMIT="<".next\.build-commit"
+if not "!HEADCOMMIT!"=="!BUILTCOMMIT!" goto :dobuild
+
+REM Also catch edits made directly on this machine. Scoped to source paths so
+REM that an edited README does not force a rebuild on every launch.
+set "SRCDIRTY="
+for /f "usebackq delims=" %%s in (`git status --porcelain -uno -- app components lib types package.json next.config.ts tsconfig.json 2^>nul`) do set "SRCDIRTY=1"
+if defined SRCDIRTY goto :dobuild
+
+:usebuild
+echo Using the existing build.
 goto :startserver
 
 :dobuild
@@ -177,6 +190,12 @@ echo.
 echo Building app. This may take a few minutes...
 call npm run build
 if errorlevel 1 goto :buildfail
+
+REM Record which commit this build came from, so the next launch can tell
+REM whether it is still current without scanning the source tree.
+set "NOWCOMMIT="
+for /f "usebackq delims=" %%h in (`git rev-parse HEAD 2^>nul`) do set "NOWCOMMIT=%%h"
+if defined NOWCOMMIT >".next\.build-commit" echo !NOWCOMMIT!
 
 :startserver
 echo.
