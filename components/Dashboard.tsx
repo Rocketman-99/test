@@ -106,6 +106,12 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
     setTimeout(() => setKeySaved(false), 2000);
   }
 
+  // 연결 테스트는 입력창 값(draft)을 그대로 보내지만 실제 기능은 저장된 값을 쓴다.
+  // 저장하지 않으면 테스트만 성공하고 정작 기능에서 401 이 나므로 따로 알린다.
+  const claudeKeyUnsaved = (normalizeApiKey(draftApiKey) ?? "") !== apiKey;
+  const geminiKeyUnsaved = (normalizeApiKey(draftGeminiKey) ?? "") !== geminiKey;
+  const anyKeyUnsaved = claudeKeyUnsaved || geminiKeyUnsaved;
+
   async function handleTestClaude() {
     setClaudeTesting(true);
     setClaudeTestResult(null);
@@ -677,7 +683,7 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Anthropic API 키</label>
-                <input type="password" value={draftApiKey} onChange={(e) => { setDraftApiKey(e.target.value); setClaudeTestResult(null); }} placeholder="sk-ant-..."
+                <input type="password" value={draftApiKey} onChange={(e) => { setDraftApiKey(e.target.value); setClaudeTestResult(null); setKeySaved(false); }} placeholder="sk-ant-..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200" />
                 <div className="flex items-center gap-2 pt-1">
                   <button type="button" onClick={handleTestClaude} disabled={claudeTesting}
@@ -689,11 +695,14 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                       {claudeTestResult.ok ? "✓" : "✗"} {claudeTestResult.msg}
                     </span>
                   )}
+                  {claudeTestResult?.ok && claudeKeyUnsaved && (
+                    <span className="text-xs text-amber-600">저장 버튼을 눌러야 실제로 적용됩니다</span>
+                  )}
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Gemini API 키 (교차검증용)</label>
-                <input type="password" value={draftGeminiKey} onChange={(e) => { setDraftGeminiKey(e.target.value); setGeminiTestResult(null); }} placeholder="AIza..."
+                <input type="password" value={draftGeminiKey} onChange={(e) => { setDraftGeminiKey(e.target.value); setGeminiTestResult(null); setKeySaved(false); }} placeholder="AIza..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200" />
                 <div className="flex items-center gap-2 pt-1">
                   <button type="button" onClick={handleTestGemini} disabled={geminiTesting}
@@ -704,6 +713,9 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                     <span className={`text-xs ${geminiTestResult.ok ? "text-green-600" : "text-red-500"}`}>
                       {geminiTestResult.ok ? "✓" : "✗"} {geminiTestResult.msg}
                     </span>
+                  )}
+                  {geminiTestResult?.ok && geminiKeyUnsaved && (
+                    <span className="text-xs text-amber-600">저장 버튼을 눌러야 실제로 적용됩니다</span>
                   )}
                 </div>
               </div>
@@ -716,6 +728,9 @@ export default function Dashboard({ spec, applications, onSpecChange, onApplicat
                   저장
                 </button>
                 {keySaved && <span className="text-sm text-green-600 font-medium">✓ 저장됨</span>}
+                {!keySaved && anyKeyUnsaved && (
+                  <span className="text-xs text-amber-600">저장되지 않은 변경이 있습니다</span>
+                )}
               </div>
               <p className="text-xs text-gray-400">키는 브라우저 로컬스토리지에만 저장됩니다. 서버 환경변수(ANTHROPIC_API_KEY, GEMINI_API_KEY)가 있으면 생략 가능합니다.</p>
             </div>
