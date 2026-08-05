@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { buildBackup, restoreBackup, estimateUsage, formatBytes } from "@/lib/backup";
 
-type Message = { kind: "ok" | "error"; text: string } | null;
+type Message = { kind: "ok" | "warn" | "error"; text: string } | null;
+
+const MESSAGE_STYLE: Record<"ok" | "warn" | "error", { color: string; icon: string }> = {
+  ok: { color: "text-green-600", icon: "✓" },
+  warn: { color: "text-amber-600", icon: "!" },
+  error: { color: "text-red-500", icon: "✗" },
+};
 
 export default function BackupSection() {
   const [includeApiKeys, setIncludeApiKeys] = useState(false);
@@ -36,9 +42,19 @@ export default function BackupSection() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      // 체크박스를 켰는데 저장된 키가 없으면 조용히 넘어가지 않는다.
+      // 아무 말이 없으면 키가 백업된 줄 알게 된다.
+      if (includeApiKeys && !backup.includesApiKeys) {
+        setMessage({
+          kind: "warn",
+          text: `${count}개 항목을 내보냈습니다. 저장된 API 키가 없어 키는 포함되지 않았습니다. (API 키 설정에서 저장 버튼을 눌렀는지 확인하세요)`,
+        });
+        return;
+      }
+
       setMessage({
         kind: "ok",
-        text: `${count}개 항목을 내보냈습니다.${includeApiKeys ? " (API 키 포함)" : ""}`,
+        text: `${count}개 항목을 내보냈습니다.${backup.includesApiKeys ? " (API 키 포함)" : ""}`,
       });
     } catch (err) {
       setMessage({ kind: "error", text: err instanceof Error ? err.message : "내보내기에 실패했습니다." });
@@ -121,8 +137,8 @@ export default function BackupSection() {
       </div>
 
       {message && (
-        <p className={`text-xs ${message.kind === "ok" ? "text-green-600" : "text-red-500"}`}>
-          {message.kind === "ok" ? "✓" : "✗"} {message.text}
+        <p className={`text-xs ${MESSAGE_STYLE[message.kind].color}`}>
+          {MESSAGE_STYLE[message.kind].icon} {message.text}
         </p>
       )}
     </div>

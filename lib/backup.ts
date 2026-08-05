@@ -25,7 +25,7 @@ const FIXED_KEYS = [
 const KEY_PREFIXES = ["job-prep-history:", "interview-history-"] as const;
 
 /** 기본적으로 백업에서 제외되는 비밀 값 */
-const SECRET_KEYS = ["anthropic-api-key", "gemini-api-key"] as const;
+export const SECRET_KEYS = ["anthropic-api-key", "gemini-api-key"] as const;
 
 export interface BackupFile {
   version: number;
@@ -65,7 +65,9 @@ export function buildBackup(includeApiKeys: boolean): BackupFile {
   return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    includesApiKeys: includeApiKeys,
+    // 요청 여부가 아니라 실제로 담겼는지를 기록한다. 저장된 키가 없는데
+    // true 로 적으면 파일을 열어본 사람이 키가 들어있다고 오해한다.
+    includesApiKeys: SECRET_KEYS.some((k) => k in data),
     data,
   };
 }
